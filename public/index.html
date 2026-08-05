@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a73e8">
+  <meta name="description" content="Cloudflare RSS Reader - A lightweight RSS reader powered by Cloudflare Workers">
+  <link rel="manifest" href="/manifest.json">
+  <title>CF RSS Reader</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- Inline theme detection to prevent FOUC -->
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme');
+      if (!theme) {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

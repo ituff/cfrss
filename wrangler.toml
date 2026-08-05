@@ -1,0 +1,14 @@
+name = "cfrss"
+main = "src/index.ts"
+compatibility_date = "2024-12-30"
+
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cfrss-db"
+database_id = "placeholder-id"
+migrations_dir = "migrations"
