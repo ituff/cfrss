@@ -6,6 +6,8 @@
   "description": "Cloudflare Worker RSS Reader with Hono",
   "scripts": {
     "dev": "wrangler dev",
+    "build:client": "esbuild src/client/main.ts --bundle --format=esm --target=es2020 --minify --outfile=public/js/main.js",
+    "predeploy": "npm run build:client",
     "deploy": "wrangler deploy",
     "test": "vitest run"
   },
@@ -14,10 +16,17 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.20.1",
-    "@cloudflare/workers-types": "^4.20241230.0",
+    "@cloudflare/workers-types": "^5.20260905.1",
+    "esbuild": "^0.28.2",
     "fast-check": "^4.9.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.10",
-    "wrangler": "^3.100.0"
+    "wrangler": "^4.129.0"
+  },
+  "allowScripts": {
+    "workerd@1.20260730.1": true,
+    "workerd@1.20260903.1": true,
+    "esbuild@0.28.1": true,
+    "esbuild@0.28.2": true
   }
 }

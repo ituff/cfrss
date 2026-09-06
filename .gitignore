@@ -13,6 +13,7 @@ dist/
 # IDE
 .vscode/
 .idea/
+.kiro/
 
 # OS
 .DS_Store
@@ -23,3 +24,7 @@ Thumbs.db
 
 # Test coverage
 coverage/
+.dev-secrets.env
+
+# Client build artifact
+public/js/

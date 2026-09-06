@@ -2,6 +2,10 @@ name = "cfrss"
 main = "src/index.ts"
 compatibility_date = "2024-12-30"
 
+routes = [
+  { pattern = "rss.maowoo.top", custom_domain = true }
+]
+
 [assets]
 directory = "./public"
 not_found_handling = "single-page-application"
@@ -10,5 +14,5 @@ run_worker_first = ["/api/*"]
 [[d1_databases]]
 binding = "DB"
 database_name = "cfrss-db"
-database_id = "placeholder-id"
+database_id = "61cdf440-f09f-4f5c-a52d-25632704913a"
 migrations_dir = "migrations"
