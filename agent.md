@@ -99,7 +99,7 @@ npx wrangler d1 migrations apply cfrss-db --remote  # 应用 D1 迁移（线上�
 
 1. 首次使用需在设置面板配置 GitHub 仓库（owner/repo/PAT）、LLM 配置，再导入订阅
 2. `.gitignore` 的 `.kiro/` 修改及 wrangler 升级改动未提交；提交后规格文档将不进版本库
-3. 缺少 CI/CD 与 lint 配置（无 eslint/prettier）
+3. CI 已配置（GitHub Actions：tsc + vitest，.github/workflows/ci.yml）；lint（eslint/prettier）未配置
 4. `README.md` 缺失
 
 ## 6. 关键设计约定（编码前必读）
