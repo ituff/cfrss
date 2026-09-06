@@ -248,12 +248,30 @@ describe('API Client', () => {
       expect(result).toEqual(article);
     });
 
-    it('refreshFeeds returns refresh result', async () => {
+    it('refreshFeeds returns refresh result (single request for small lists)', async () => {
       const refreshResult = { refreshed: 2, newArticles: 5, failures: [] };
-      mockFetch.mockResolvedValueOnce(jsonResponse(refreshResult));
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ subscriptions: [{ id: 's1' }, { id: 's2' }] }))
+        .mockResolvedValueOnce(jsonResponse(refreshResult));
 
       const result = await refreshFeeds();
       expect(result).toEqual(refreshResult);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('refreshFeeds chunks large subscription lists', async () => {
+      const ids = Array.from({ length: 20 }, (_, i) => `s${i}`);
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ subscriptions: ids.map((id) => ({ id })) }))
+        .mockResolvedValueOnce(jsonResponse({ refreshed: 8, newArticles: 4, failures: [] }))
+        .mockResolvedValueOnce(jsonResponse({ refreshed: 8, newArticles: 3, failures: [] }))
+        .mockResolvedValueOnce(jsonResponse({ refreshed: 4, newArticles: 2, failures: [] }));
+
+      const result = await refreshFeeds();
+
+      expect(result).toEqual({ refreshed: 20, newArticles: 9, failures: [] });
+      // 1 GET subscriptions + 3 POST chunks (8 + 8 + 4)
+      expect(mockFetch).toHaveBeenCalledTimes(4);
     });
   });
 

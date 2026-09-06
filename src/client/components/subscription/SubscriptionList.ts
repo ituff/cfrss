@@ -7,6 +7,14 @@
  */
 
 import { t, onLanguageChange } from '../../services/i18n.js';
+import {
+  createCategory,
+  renameCategory,
+  deleteCategory,
+  moveSubscription,
+  enableSubscription,
+  updateSubscription,
+} from '../../services/api.js';
 import { CategoryGroup } from './CategoryGroup.js';
 import { AddSubscription } from './AddSubscription.js';
 import { OPMLImport } from './OPMLImport.js';
@@ -67,8 +75,11 @@ export class SubscriptionList {
       if (!subsRes.ok) throw new Error(`Failed to load subscriptions: ${subsRes.status}`);
       if (!catsRes.ok) throw new Error(`Failed to load categories: ${catsRes.status}`);
 
-      this.subscriptions = await subsRes.json();
-      this.categories = await catsRes.json();
+      // API wraps payloads: { subscriptions: [...] } / { categories: [...] }
+      const subsData = await subsRes.json() as { subscriptions: Subscription[] };
+      const catsData = await catsRes.json() as { categories: Category[] };
+      this.subscriptions = subsData.subscriptions ?? [];
+      this.categories = catsData.categories ?? [];
     } catch (err) {
       this.error = err instanceof Error ? err.message : t('network_error');
     } finally {
@@ -198,6 +209,14 @@ export class SubscriptionList {
     exportBtn.addEventListener('click', () => this.exportOPML());
     actions.appendChild(exportBtn);
 
+    const addCatBtn = document.createElement('button');
+    addCatBtn.className = 'btn btn--secondary';
+    addCatBtn.textContent = t('add_category');
+    addCatBtn.style.minWidth = '44px';
+    addCatBtn.style.minHeight = '44px';
+    addCatBtn.addEventListener('click', () => this.handleAddCategory());
+    actions.appendChild(addCatBtn);
+
     header.appendChild(actions);
     this.element.appendChild(header);
 
@@ -248,17 +267,112 @@ export class SubscriptionList {
       return;
     }
 
-    // Render categories with subscriptions
+    // Render categories with subscriptions (full management)
     const grouped = this.groupByCategory();
     const sortedCategories = [...this.categories].sort((a, b) => a.order - b.order);
 
     for (const cat of sortedCategories) {
       const subs = grouped.get(cat.id) || [];
-      const group = new CategoryGroup(cat, subs, (id, title) =>
-        this.deleteSubscription(id, title)
-      );
+      const group = new CategoryGroup(cat, subs, this.categories, {
+        onDelete: (id, title) => this.deleteSubscription(id, title),
+        onEdit: (feed) => this.handleEditSubscription(feed),
+        onRenameCategory: (id, currentName) => this.handleRenameCategory(id, currentName),
+        onDeleteCategory: (id, name) => this.handleDeleteCategory(id, name),
+        onMove: (feedId, toCategoryId) => this.handleMove(feedId, toCategoryId),
+        onEnable: (feedId) => this.handleEnable(feedId),
+      });
       this.categoryGroups.push(group);
       this.element.appendChild(group.getElement());
+    }
+  }
+
+  /**
+   * Edit a subscription's title / RSS URL (values via prompts).
+   */
+  private async handleEditSubscription(feed: Subscription): Promise<void> {
+    const title = window.prompt(t('edit_title'), feed.title);
+    if (title === null) return;
+
+    const url = window.prompt(t('edit_url'), feed.url);
+    if (url === null) return;
+
+    const updates: { title?: string; url?: string } = {};
+    if (title.trim() && title.trim() !== feed.title) updates.title = title.trim();
+    if (url.trim() && url.trim() !== feed.url) updates.url = url.trim();
+
+    if (Object.keys(updates).length === 0) return;
+
+    try {
+      await updateSubscription(feed.id, updates);
+      await this.load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('network_error'));
+    }
+  }
+
+  /**
+   * Create a new category (name via prompt).
+   */
+  private async handleAddCategory(): Promise<void> {
+    const name = window.prompt(t('add_category'));
+    if (!name || !name.trim()) return;
+    try {
+      await createCategory(name.trim());
+      await this.load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('network_error'));
+    }
+  }
+
+  /**
+   * Rename a category (new name via prompt).
+   */
+  private async handleRenameCategory(id: string, currentName: string): Promise<void> {
+    const name = window.prompt(t('rename_category'), currentName);
+    if (!name || !name.trim() || name.trim() === currentName) return;
+    try {
+      await renameCategory(id, name.trim());
+      await this.load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('network_error'));
+    }
+  }
+
+  /**
+   * Delete a category — feeds are reassigned to the default category.
+   */
+  private async handleDeleteCategory(id: string, name: string): Promise<void> {
+    const confirmed = window.confirm(`${t('delete_category')}: "${name}"?`);
+    if (!confirmed) return;
+    try {
+      await deleteCategory(id);
+      await this.load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('network_error'));
+    }
+  }
+
+  /**
+   * Move a subscription to another category.
+   */
+  private async handleMove(feedId: string, toCategoryId: string): Promise<void> {
+    try {
+      await moveSubscription(feedId, toCategoryId);
+      await this.load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('network_error'));
+    }
+  }
+
+  /**
+   * Re-enable a subscription marked abnormal.
+   */
+  private async handleEnable(feedId: string): Promise<void> {
+    try {
+      await enableSubscription(feedId);
+      await this.load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t('network_error'));
     }
   }
 }

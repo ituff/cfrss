@@ -2,18 +2,25 @@
  * MobileLayout — single-pane layout for viewports < 1024px.
  * Displays one active view at a time with a fixed bottom navigation bar.
  * Navigation items have minimum 44×44px touch targets.
+ *
+ * Route content is rendered by the shared RouteView (real feature components).
  */
 
 import { Route } from '../router.js';
-import { getCurrentArticleId } from '../state.js';
+import { RouteView } from './route-view.js';
 
 export class MobileLayout {
   private element: HTMLElement;
   private currentRoute: Route;
+  private routeView: RouteView | null = null;
 
   constructor(currentRoute: Route) {
     this.currentRoute = currentRoute;
     this.element = this.create();
+    const content = this.element.querySelector('#content');
+    if (content) {
+      this.routeView = new RouteView(content as HTMLElement, this.currentRoute);
+    }
   }
 
   /**
@@ -28,11 +35,16 @@ export class MobileLayout {
    */
   updateRoute(route: Route): void {
     this.currentRoute = route;
-    const mainEl = this.element.querySelector('#content');
-    if (mainEl) {
-      mainEl.innerHTML = this.renderRouteContent();
-    }
+    this.routeView?.update(route);
     this.updateNavActiveState();
+  }
+
+  /**
+   * Tear down the mounted route view and listeners.
+   */
+  destroy(): void {
+    this.routeView?.destroy();
+    this.routeView = null;
   }
 
   /**
@@ -47,7 +59,6 @@ export class MobileLayout {
     main.className = 'pane-main';
     main.id = 'content';
     main.setAttribute('role', 'main');
-    main.innerHTML = this.renderRouteContent();
 
     // Fixed bottom navigation bar
     const navBar = document.createElement('nav');
@@ -58,29 +69,6 @@ export class MobileLayout {
     layout.appendChild(main);
     layout.appendChild(navBar);
     return layout;
-  }
-
-  /**
-   * Render the main content area based on the current route.
-   * Preserves the current article ID from state across layout switches.
-   */
-  private renderRouteContent(): string {
-    const articleId = getCurrentArticleId();
-
-    switch (this.currentRoute.path) {
-      case 'home':
-        return '<div class="route-view"><div class="view-placeholder">Daily Digest</div></div>';
-      case 'subscriptions':
-        return '<div class="route-view"><div class="view-placeholder">Subscriptions</div></div>';
-      case 'articles':
-        return '<div class="route-view"><div class="view-placeholder">Articles</div></div>';
-      case 'article-detail':
-        return `<div class="route-view"><div class="view-placeholder">Article: ${this.currentRoute.params.id || articleId || ''}</div></div>`;
-      case 'settings':
-        return '<div class="route-view"><div class="view-placeholder">Settings</div></div>';
-      default:
-        return '<div class="route-view"><div class="view-placeholder">Not Found</div></div>';
-    }
   }
 
   /**

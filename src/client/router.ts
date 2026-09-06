@@ -1,11 +1,13 @@
 /**
  * Simple hash-based client-side router.
- * Routes: #/ (home/digest), #/subscriptions, #/articles, #/articles/:id, #/settings
+ * Routes: #/ (home/main view), #/digest, #/subscriptions, #/articles[?subscription=id], #/articles/:id, #/settings
  */
 
 export interface Route {
   path: string;
   params: Record<string, string>;
+  /** Query params from the hash, e.g. #/articles?subscription=x */
+  query: Record<string, string>;
 }
 
 export type RouteChangeHandler = (route: Route) => void;
@@ -13,12 +15,23 @@ export type RouteChangeHandler = (route: Route) => void;
 const ROUTES = [
   { pattern: /^#\/articles\/(.+)$/, name: 'article-detail', paramNames: ['id'] },
   { pattern: /^#\/articles$/, name: 'articles', paramNames: [] },
+  { pattern: /^#\/digest$/, name: 'digest', paramNames: [] },
   { pattern: /^#\/subscriptions$/, name: 'subscriptions', paramNames: [] },
   { pattern: /^#\/settings$/, name: 'settings', paramNames: [] },
   { pattern: /^#\/?$/, name: 'home', paramNames: [] },
 ] as const;
 
-let currentRoute: Route = { path: 'home', params: {} };
+function parseQuery(raw: string | undefined): Record<string, string> {
+  const query: Record<string, string> = {};
+  if (!raw) return query;
+  for (const pair of raw.split('&')) {
+    const [key, value] = pair.split('=');
+    if (key) query[decodeURIComponent(key)] = decodeURIComponent(value ?? '');
+  }
+  return query;
+}
+
+let currentRoute: Route = { path: 'home', params: {}, query: {} };
 let listeners: RouteChangeHandler[] = [];
 
 /**
@@ -27,19 +40,21 @@ let listeners: RouteChangeHandler[] = [];
 export function parseHash(hash: string): Route {
   const normalizedHash = hash || '#/';
 
+  const [hashPath, hashQuery] = normalizedHash.split('?');
+
   for (const route of ROUTES) {
-    const match = normalizedHash.match(route.pattern);
+    const match = hashPath.match(route.pattern);
     if (match) {
       const params: Record<string, string> = {};
       route.paramNames.forEach((name, index) => {
         params[name] = match[index + 1];
       });
-      return { path: route.name, params };
+      return { path: route.name, params, query: parseQuery(hashQuery) };
     }
   }
 
   // Default to home for unmatched routes
-  return { path: 'home', params: {} };
+  return { path: 'home', params: {}, query: parseQuery(hashQuery) };
 }
 
 /**

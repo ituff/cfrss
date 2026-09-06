@@ -32,6 +32,8 @@ export async function setupTestDatabase(db: D1Database): Promise<void> {
       category_id TEXT NOT NULL DEFAULT 'default',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_fetched_at TEXT,
+      fail_count INTEGER NOT NULL DEFAULT 0,
+      disabled INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY (category_id) REFERENCES categories(id)
     );
 

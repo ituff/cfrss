@@ -131,6 +131,37 @@ export function getAuthToken(): string | null {
   return authToken;
 }
 
+let fetchAuthInstalled = false;
+
+/**
+ * Install a global fetch interceptor that attaches the Bearer token to
+ * same-origin /api/* requests. Many components issue raw fetch() calls;
+ * this guarantees they all carry authentication once the user has signed in.
+ */
+export function installFetchAuth(): void {
+  if (fetchAuthInstalled || typeof window === 'undefined') return;
+  fetchAuthInstalled = true;
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input.url;
+
+    if (authToken && url.startsWith('/api/')) {
+      const headers = new Headers(init?.headers);
+      if (!headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${authToken}`);
+      }
+      init = { ...init, headers };
+    }
+
+    return originalFetch(input, init);
+  };
+}
+
 // === Base request helper ===
 
 /**
@@ -257,6 +288,24 @@ export async function deleteSubscription(id: string): Promise<void> {
 /**
  * Move a subscription to a different category.
  */
+/**
+ * Update a subscription's title and/or RSS URL.
+ */
+export async function updateSubscription(
+  id: string,
+  updates: { title?: string; url?: string }
+): Promise<Subscription> {
+  const data = await apiRequest<{ subscription: Subscription }>('PUT', `/api/subscriptions/${id}`, updates);
+  return data.subscription;
+}
+
+/**
+ * Re-enable a subscription marked abnormal (resets its failure counter).
+ */
+export async function enableSubscription(id: string): Promise<void> {
+  await apiRequest<{ success: boolean }>('PUT', `/api/subscriptions/${id}/enable`);
+}
+
 export async function moveSubscription(id: string, categoryId: string): Promise<Subscription> {
   const data = await apiRequest<{ subscription: Subscription }>(
     'PUT',
@@ -327,9 +376,39 @@ export async function getArticle(id: string): Promise<Article> {
 
 /**
  * Trigger a refresh of all subscription feeds.
+ *
+ * The free-tier Worker has a ~10ms CPU budget, so refreshing many feeds in a
+ * single request gets killed (Cloudflare error 1102). We chunk the
+ * subscriptions and refresh each chunk in its own request, merging the totals.
  */
-export async function refreshFeeds(): Promise<RefreshResult> {
-  return apiRequest<RefreshResult>('POST', '/api/articles/refresh');
+export async function refreshFeeds(onProgress?: (done: number, total: number) => void): Promise<RefreshResult> {
+  const CHUNK_SIZE = 8;
+
+  let ids: string[];
+  try {
+    const subscriptions = await getSubscriptions();
+    ids = subscriptions.map((s) => s.id);
+  } catch {
+    // Can't list subscriptions — fall back to an unfiltered refresh
+    return apiRequest<RefreshResult>('POST', '/api/articles/refresh');
+  }
+
+  if (ids.length <= CHUNK_SIZE) {
+    return apiRequest<RefreshResult>('POST', '/api/articles/refresh');
+  }
+
+  const merged: RefreshResult = { refreshed: 0, newArticles: 0, failures: [] };
+  let done = 0;
+  for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + CHUNK_SIZE);
+    const result = await apiRequest<RefreshResult>('POST', '/api/articles/refresh', { ids: chunk }, { retries: 2 });
+    merged.refreshed += result.refreshed;
+    merged.newArticles += result.newArticles;
+    merged.failures.push(...result.failures);
+    done += chunk.length;
+    onProgress?.(done, ids.length);
+  }
+  return merged;
 }
 
 // === OPML API ===

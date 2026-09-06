@@ -15,14 +15,14 @@ function makeSubscription(id: string, url: string, title: string = `Feed ${id}`)
 }
 
 // Helper to create valid RSS XML response
-function makeRSSXml(title: string, items: Array<{ title: string; link: string }>): string {
+function makeRSSXml(title: string, items: Array<{ title: string; link: string; pubDate?: string }>): string {
   const itemsXml = items
     .map(
       (item) => `
     <item>
       <title>${item.title}</title>
       <link>${item.link}</link>
-      <pubDate>Mon, 15 Jan 2024 08:30:00 GMT</pubDate>
+      <pubDate>${item.pubDate ?? new Date().toUTCString()}</pubDate>
       <description>Summary of ${item.title}</description>
     </item>`
     )
@@ -63,6 +63,23 @@ describe('refreshAllFeeds - Parallel feed refresh with fault tolerance', () => {
     expect(result.successes[0].subscriptionId).toBe('sub-1');
     expect(result.successes[0].articles).toHaveLength(1);
     expect(result.successes[0].articles[0].title).toBe('Article 1');
+  });
+
+  it('should drop articles older than the 7-day refresh window', async () => {
+    const xml = makeRSSXml('Test Feed', [
+      { title: 'Old Article', link: 'https://example.com/old', pubDate: 'Mon, 15 Jan 2024 08:30:00 GMT' },
+      { title: 'Fresh Article', link: 'https://example.com/fresh' },
+    ]);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(xml, { status: 200 }))
+    );
+
+    const result = await refreshAllFeeds([{ id: 'sub-1', url: 'https://example.com/feed', title: 'Feed', categoryId: 'default', createdAt: '', lastFetchedAt: null }]);
+
+    expect(result.failures).toHaveLength(0);
+    expect(result.successes[0].articles).toHaveLength(1);
+    expect(result.successes[0].articles[0].title).toBe('Fresh Article');
   });
 
   it('should fetch multiple feeds concurrently and return all results', async () => {

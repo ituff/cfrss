@@ -405,76 +405,126 @@ export class DailyDigestCard {
     if (!md) return '';
 
     const lines = md.split('\n');
-    const htmlLines: string[] = [];
-    let inList = false;
+    const html: string[] = [];
     let listType: 'ul' | 'ol' | null = null;
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      // Close list if current line isn't a list item
-      if (inList && !trimmed.startsWith('- ') && !trimmed.match(/^\d+\.\s/)) {
-        htmlLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-        inList = false;
+    const closeList = () => {
+      if (listType) {
+        html.push(`</${listType}>`);
         listType = null;
       }
+    };
 
-      // Headers
-      if (trimmed.startsWith('### ')) {
-        htmlLines.push(`<h4>${this.escapeHtml(trimmed.slice(4))}</h4>`);
-      } else if (trimmed.startsWith('## ')) {
-        htmlLines.push(`<h3>${this.escapeHtml(trimmed.slice(3))}</h3>`);
-      } else if (trimmed.startsWith('# ')) {
-        htmlLines.push(`<h3>${this.escapeHtml(trimmed.slice(2))}</h3>`);
+    let i = 0;
+    while (i < lines.length) {
+      const trimmed = lines[i].trim();
+
+      if (!trimmed) {
+        closeList();
+        i++;
+        continue;
       }
-      // Unordered list
-      else if (trimmed.startsWith('- ')) {
-        if (!inList || listType !== 'ul') {
-          if (inList) htmlLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-          htmlLines.push('<ul>');
-          inList = true;
+
+      // Horizontal rule
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+        closeList();
+        html.push('<hr>');
+        i++;
+        continue;
+      }
+
+      // Table: current line starts with '|' and next line is a separator row
+      if (
+        trimmed.startsWith('|') &&
+        i + 1 < lines.length &&
+        /^\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1].trim())
+      ) {
+        closeList();
+        const rows: string[][] = [];
+        while (i < lines.length && lines[i].trim().startsWith('|')) {
+          const cells = lines[i]
+            .trim()
+            .replace(/^\||\|$/g, '')
+            .split('|')
+            .map((c) => this.inlineMarkdown(c.trim()));
+          rows.push(cells);
+          i++;
+        }
+        if (rows.length >= 2) {
+          html.push(
+            '<table><thead><tr>' + rows[0].map((c) => `<th>${c}</th>`).join('') + '</tr></thead>'
+          );
+          html.push(
+            '<tbody>' +
+              rows.slice(2).map((r) => '<tr>' + r.map((c) => `<td>${c}</td>`).join('') + '</tr>').join('') +
+              '</tbody></table>'
+          );
+        } else {
+          html.push('<table><tbody>' + rows.map((r) => '<tr>' + r.map((c) => `<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody></table>');
+        }
+        continue;
+      }
+
+      // Headers (# → h2 ... #### → h5)
+      const heading = trimmed.match(/^(#{1,4})\s+(.*)/);
+      if (heading) {
+        closeList();
+        const level = Math.min(heading[1].length + 1, 5);
+        html.push(`<h${level}>${this.inlineMarkdown(heading[2])}</h${level}>`);
+        i++;
+        continue;
+      }
+
+      // Blockquote
+      if (trimmed.startsWith('&gt; ') || trimmed.startsWith('> ')) {
+        closeList();
+        const quote = trimmed.startsWith('&gt; ') ? trimmed.slice(5) : trimmed.slice(2);
+        html.push(`<blockquote>${this.inlineMarkdown(quote)}</blockquote>`);
+        i++;
+        continue;
+      }
+
+      // Lists
+      const ul = trimmed.match(/^[-*]\s+(.*)/);
+      const ol = trimmed.match(/^\d+[.、)]\s+(.*)/);
+      if (ul) {
+        if (listType !== 'ul') {
+          closeList();
+          html.push('<ul>');
           listType = 'ul';
         }
-        htmlLines.push(`<li>${this.inlineMarkdown(trimmed.slice(2))}</li>`);
+        html.push(`<li>${this.inlineMarkdown(ul[1])}</li>`);
+        i++;
+        continue;
       }
-      // Ordered list
-      else if (trimmed.match(/^\d+\.\s/)) {
-        if (!inList || listType !== 'ol') {
-          if (inList) htmlLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-          htmlLines.push('<ol>');
-          inList = true;
+      if (ol) {
+        if (listType !== 'ol') {
+          closeList();
+          html.push('<ol>');
           listType = 'ol';
         }
-        const content = trimmed.replace(/^\d+\.\s/, '');
-        htmlLines.push(`<li>${this.inlineMarkdown(content)}</li>`);
+        html.push(`<li>${this.inlineMarkdown(ol[1])}</li>`);
+        i++;
+        continue;
       }
-      // Empty line
-      else if (trimmed === '') {
-        // Skip empty lines (paragraph separation handled implicitly)
-      }
+
       // Paragraph
-      else {
-        htmlLines.push(`<p>${this.inlineMarkdown(trimmed)}</p>`);
-      }
+      closeList();
+      html.push(`<p>${this.inlineMarkdown(trimmed)}</p>`);
+      i++;
     }
-
-    // Close any open list
-    if (inList) {
-      htmlLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-    }
-
-    return htmlLines.join('');
+    closeList();
+    return html.join('\n');
   }
 
-  /**
-   * Process inline markdown (bold).
-   */
   private inlineMarkdown(text: string): string {
     // Escape HTML first, then apply inline formatting
-    let escaped = this.escapeHtml(text);
-    // Bold: **text**
-    escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    return escaped;
+    let s = this.escapeHtml(text);
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    return s;
   }
 
   /**

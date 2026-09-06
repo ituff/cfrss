@@ -63,6 +63,10 @@ export class AppShell {
    * Destroy the shell — unbind events and clean up.
    */
   destroy(): void {
+    this.desktopLayout?.destroy();
+    this.mobileLayout?.destroy();
+    this.desktopLayout = null;
+    this.mobileLayout = null;
     this.mediaQuery.removeEventListener('change', this.handleMediaChange);
     if (this.unsubscribeRoute) {
       this.unsubscribeRoute();
@@ -114,6 +118,11 @@ export class AppShell {
    * Full render of the app shell based on current layout mode.
    */
   private render(): void {
+    // Tear down the previous layout's mounted views before replacing the DOM
+    this.desktopLayout?.destroy();
+    this.mobileLayout?.destroy();
+    this.desktopLayout = null;
+    this.mobileLayout = null;
     this.container.innerHTML = '';
 
     const shell = document.createElement('div');

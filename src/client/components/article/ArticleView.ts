@@ -9,6 +9,7 @@
  */
 
 import { navigate } from '../../router.js';
+import { t } from '../../services/i18n.js';
 import { ArticleSwipeNavigator } from '../../gestures.js';
 import { getCurrentArticleId, setCurrentArticleId } from '../../state.js';
 
@@ -92,7 +93,9 @@ export class ArticleView {
     if (!response.ok) {
       throw new Error(`Failed to fetch article: ${response.status}`);
     }
-    return await response.json() as ArticleDetail;
+    // API wraps the payload: { article: {...} }
+    const data = await response.json() as { article: ArticleDetail };
+    return data.article;
   }
 
   /**
@@ -135,22 +138,16 @@ export class ArticleView {
     const actions = document.createElement('div');
     actions.className = 'article-view-actions';
     actions.innerHTML = `
-      <button class="action-btn action-summarize" type="button" aria-label="Summarize article">
-        Summarize
+      <button class="action-btn action-summarize" type="button" aria-label="${t('summarize')}">
+        <span class="action-btn__icon" aria-hidden="true">✦</span>${t('summarize')}
       </button>
-      <button class="action-btn action-translate" type="button" aria-label="Translate article">
-        Translate
+      <button class="action-btn action-translate" type="button" aria-label="${t('translate')}">
+        <span class="action-btn__icon" aria-hidden="true">🌐</span>${t('translate')}
       </button>
-      <button class="action-btn action-read-aloud" type="button" aria-label="Read article aloud">
-        Read Aloud
+      <button class="action-btn action-read-aloud" type="button" aria-label="${t('read_aloud')}">
+        <span class="action-btn__icon" aria-hidden="true">🔊</span>${t('read_aloud')}
       </button>
     `;
-
-    // Min touch target sizing
-    actions.querySelectorAll('.action-btn').forEach((btn) => {
-      (btn as HTMLElement).style.minWidth = '44px';
-      (btn as HTMLElement).style.minHeight = '44px';
-    });
 
     // Article body (HTML content rendered directly)
     const body = document.createElement('div');
@@ -164,7 +161,7 @@ export class ArticleView {
       <a href="${this.escapeHtml(this.article.sourceUrl)}" 
          target="_blank" rel="noopener noreferrer"
          class="article-source-link">
-        View original
+        ${t('show_original')} ↗
       </a>
     `;
 

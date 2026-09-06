@@ -69,14 +69,15 @@ export class GitHubConfigPanel {
     try {
       const res = await fetch('/api/config/github');
       if (res.ok) {
-        const data = await res.json() as { config: GitHubConfigData | null };
-        if (data.config) {
-          this.repoOwner = data.config.repoOwner || '';
-          this.repoName = data.config.repoName || '';
-          this.branch = data.config.branch || 'main';
-          this.contentPath = data.config.contentPath || 'articles';
+        // Backend returns a flat object: { repoOwner, repoName, token(masked), branch, contentPath }
+        const data = await res.json() as Partial<GitHubConfigData> | null;
+        if (data && (data.repoOwner || data.repoName)) {
+          this.repoOwner = data.repoOwner || '';
+          this.repoName = data.repoName || '';
+          this.branch = data.branch || 'main';
+          this.contentPath = data.contentPath || 'articles';
           // Token comes back masked from server
-          this.maskedToken = data.config.token || '';
+          this.maskedToken = data.token || '';
           this.token = ''; // Don't pre-fill actual token
         }
       }

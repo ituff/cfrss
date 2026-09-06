@@ -244,6 +244,9 @@ describe('Subscription Manager - Subscription CRUD', () => {
         categoryId: 'default',
         createdAt: expect.any(String),
         lastFetchedAt: null,
+        failCount: 0,
+        disabled: false,
+        unreadCount: 0,
       });
     });
   });

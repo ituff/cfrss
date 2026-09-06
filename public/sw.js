@@ -1,7 +1,7 @@
 // Service Worker for CF RSS Reader
 // Cache-first strategy for app shell, network-first for articles
 
-const APP_CACHE = 'rss-app-v1';
+const APP_CACHE = 'rss-app-v2';
 const ARTICLES_CACHE = 'rss-articles-v1';
 const MAX_CACHED_ARTICLES = 25;
 
@@ -59,17 +59,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell and static assets: cache-first
-  event.respondWith(cacheFirstWithNetwork(event.request));
+  // App shell and static assets: network-first with cache fallback.
+  // Ensures users get fresh assets after each deploy; cache serves offline.
+  event.respondWith(networkFirstShell(event.request));
 });
 
-// Cache-first strategy for app shell
-async function cacheFirstWithNetwork(request) {
-  const cached = await caches.match(request);
-  if (cached) {
-    return cached;
-  }
-
+// Network-first strategy for app shell assets
+async function networkFirstShell(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
@@ -78,6 +74,10 @@ async function cacheFirstWithNetwork(request) {
     }
     return response;
   } catch (error) {
+    const cached = await caches.match(request);
+    if (cached) {
+      return cached;
+    }
     // If both cache and network fail, return a basic offline page
     if (request.mode === 'navigate') {
       const cache = await caches.open(APP_CACHE);
