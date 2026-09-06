@@ -1,8 +1,28 @@
 import type { Context } from 'hono';
-import type { Env } from '../types';
+import type { Env, GitHubConfig } from '../types';
 import { refreshAllFeeds, type FeedRefreshFailure } from '../services/content-fetcher';
+import { storeArticle, getArticleContent, type ArticleStorageData } from '../services/content-store';
+import { getConfig } from '../services/config-store';
+import { decrypt } from '../utils/crypto';
 import { notFoundError } from '../utils/errors';
 import { parsePageLimit, isApproachingCpuLimit, markTruncated } from '../middleware/cpu-monitor';
+
+/**
+ * Load the GitHub storage config from D1, decrypting the PAT.
+ * Returns null when GitHub storage is not configured.
+ */
+async function loadGitHubConfig(db: Env['DB'], encryptionKey: string): Promise<GitHubConfig | null> {
+  const [owner, name, tokenEncrypted, branch, contentPath] = await Promise.all([
+    getConfig(db, 'github_repo_owner'),
+    getConfig(db, 'github_repo_name'),
+    getConfig(db, 'github_token_encrypted'),
+    getConfig(db, 'github_branch'),
+    getConfig(db, 'github_content_path'),
+  ]);
+  if (!owner || !name || !tokenEncrypted) return null;
+  const token = await decrypt(tokenEncrypted, encryptionKey);
+  return { repoOwner: owner, repoName: name, token, branch: branch || 'main', contentPath: contentPath || 'articles' };
+}
 
 /**
  * GET /api/articles
@@ -74,7 +94,24 @@ export async function handleGetArticle(c: Context<{ Bindings: Env }>) {
     throw notFoundError(`Article not found: ${id}`);
   }
 
-  return c.json({ article: mapArticleRow(result) });
+  const article = mapArticleRow(result) as Record<string, unknown>;
+
+  // Full content lives in GitHub storage — fetch and attach it
+  try {
+    const ghConfig = await loadGitHubConfig(db, c.env.ENCRYPTION_KEY);
+    if (ghConfig && article.contentPath) {
+      const content = await getArticleContent(ghConfig, article.contentPath as string);
+      if (content) {
+        article.htmlContent = content.htmlContent;
+        if (content.title) article.title = content.title;
+        if (content.author) article.author = content.author;
+      }
+    }
+  } catch {
+    // Storage unavailable — return metadata without content
+  }
+
+  return c.json({ article });
 }
 
 /**
@@ -87,12 +124,30 @@ export async function handleGetArticle(c: Context<{ Bindings: Env }>) {
 export async function handleRefreshFeeds(c: Context<{ Bindings: Env }>) {
   const db = c.env.DB;
 
-  // Get all subscriptions
-  const subsResult = await db
-    .prepare('SELECT * FROM subscriptions')
-    .all();
+  // Optional body { ids?: string[], force?: boolean } — refresh only the given
+  // subscriptions, and optionally retry ones already marked abnormal.
+  // The free tier's 10ms CPU budget can't parse every feed in one request,
+  // so callers (the web client) chunk large subscription lists.
+  let filterIds: string[] | null = null;
+  let force = false;
+  try {
+    const body = await c.req.json<{ ids?: string[]; force?: boolean }>();
+    if (body?.ids?.length) {
+      filterIds = body.ids;
+    }
+    force = body?.force === true;
+  } catch {
+    // No JSON body — refresh everything
+  }
 
-  const subscriptions = (subsResult.results ?? []).map((row: Record<string, unknown>) => ({
+  // Get subscriptions. Subscriptions marked abnormal (disabled) are skipped
+  // unless force=true — they keep failing and would otherwise burn the
+  // request's resource budget on every refresh.
+  const subsResult = force
+    ? await db.prepare('SELECT * FROM subscriptions').all()
+    : await db.prepare('SELECT * FROM subscriptions WHERE disabled = 0').all();
+
+  let subscriptions = (subsResult.results ?? []).map((row: Record<string, unknown>) => ({
     id: row.id as string,
     url: row.url as string,
     title: row.title as string,
@@ -101,20 +156,55 @@ export async function handleRefreshFeeds(c: Context<{ Bindings: Env }>) {
     lastFetchedAt: (row.last_fetched_at as string) || null,
   }));
 
+  if (filterIds) {
+    const idSet = new Set(filterIds);
+    subscriptions = subscriptions.filter((s) => idSet.has(s.id));
+  }
+
   // Refresh all feeds in parallel
   const refreshResult = await refreshAllFeeds(subscriptions);
 
-  // Get existing source_urls to deduplicate
-  const existingUrlsResult = await db
-    .prepare('SELECT source_url FROM articles')
-    .all();
+  // Update health counters: failures count toward the abnormal threshold,
+  // successes reset the counter.
+  const MAX_CONSECUTIVE_FAILURES = 5;
+  for (const failure of refreshResult.failures) {
+    await db
+      .prepare(
+        `UPDATE subscriptions
+         SET fail_count = fail_count + 1,
+             disabled = CASE WHEN fail_count + 1 >= ? THEN 1 ELSE disabled END
+         WHERE id = ?`
+      )
+      .bind(MAX_CONSECUTIVE_FAILURES, failure.subscriptionId)
+      .run();
+  }
+  for (const success of refreshResult.successes) {
+    // A successful fetch restores the feed's health (clears abnormal flag too)
+    await db
+      .prepare('UPDATE subscriptions SET fail_count = 0, disabled = 0 WHERE id = ? AND (fail_count > 0 OR disabled = 1)')
+      .bind(success.subscriptionId)
+      .run();
+  }
 
-  const existingUrls = new Set(
-    (existingUrlsResult.results ?? []).map((r: Record<string, unknown>) => r.source_url as string)
-  );
+  // Get existing source_urls to deduplicate — scoped to the subscriptions being
+  // refreshed. Loading the whole articles table here pushes CPU over the free
+  // tier limit once the table grows (Cloudflare error 1102).
+  const existingUrls = new Set<string>();
+  if (subscriptions.length > 0) {
+    const placeholders = subscriptions.map(() => '?').join(', ');
+    const existingUrlsResult = await db
+      .prepare(`SELECT source_url FROM articles WHERE subscription_id IN (${placeholders})`)
+      .bind(...subscriptions.map((s) => s.id))
+      .all();
+    for (const r of existingUrlsResult.results ?? []) {
+      existingUrls.add((r as Record<string, unknown>).source_url as string);
+    }
+  }
 
-  // Insert new articles
+  // Insert new articles, storing full content in GitHub storage
   let newArticleCount = 0;
+  const ghConfig = await loadGitHubConfig(db, c.env.ENCRYPTION_KEY);
+  const urlBySubscriptionId = new Map(subscriptions.map((s) => [s.id, s.url]));
 
   for (const success of refreshResult.successes) {
     for (const article of success.articles) {
@@ -124,7 +214,30 @@ export async function handleRefreshFeeds(c: Context<{ Bindings: Env }>) {
       }
 
       const articleId = crypto.randomUUID();
-      const contentPath = `articles/${articleId}`;
+      const publishedAt = article.publishedAt || new Date().toISOString();
+
+      // Persist the full content to GitHub storage (best effort —
+      // the article is still indexed without it, but the detail
+      // view will have no body until a successful re-fetch).
+      let contentPath = `articles/${articleId}`;
+      if (ghConfig) {
+        try {
+          const storageData: ArticleStorageData = {
+            id: articleId,
+            title: article.title,
+            author: article.author,
+            publishedAt,
+            sourceUrl: article.sourceUrl,
+            feedUrl: urlBySubscriptionId.get(success.subscriptionId) ?? '',
+            htmlContent: article.htmlContent,
+            fetchedAt: new Date().toISOString(),
+          };
+          contentPath = await storeArticle(ghConfig, storageData);
+        } catch (error) {
+          // Upload failed — keep the indexed row with the fallback path
+          console.error(`[CFRSS] GitHub upload failed for ${articleId}:`, error instanceof Error ? error.message : error);
+        }
+      }
 
       await db
         .prepare(
@@ -136,7 +249,7 @@ export async function handleRefreshFeeds(c: Context<{ Bindings: Env }>) {
           success.subscriptionId,
           article.title,
           article.author,
-          article.publishedAt || new Date().toISOString(),
+          publishedAt,
           article.summary,
           contentPath,
           article.sourceUrl

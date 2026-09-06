@@ -122,6 +122,9 @@ interface SubscriptionRow {
   category_id: string;
   created_at: string;
   last_fetched_at: string | null;
+  fail_count?: number;
+  disabled?: number;
+  unread_count?: number;
 }
 
 function rowToSubscription(row: SubscriptionRow): Subscription {
@@ -132,7 +135,20 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
     categoryId: row.category_id,
     createdAt: row.created_at,
     lastFetchedAt: row.last_fetched_at,
+    failCount: row.fail_count ?? 0,
+    disabled: (row.disabled ?? 0) === 1,
+    unreadCount: row.unread_count ?? 0,
   };
+}
+
+/**
+ * Reset a subscription's health state (clear abnormal flag and failure counter).
+ */
+export async function resetSubscriptionHealth(db: D1Database, id: string): Promise<void> {
+  await db
+    .prepare('UPDATE subscriptions SET fail_count = 0, disabled = 0 WHERE id = ?')
+    .bind(id)
+    .run();
 }
 
 /**
@@ -153,7 +169,9 @@ function validateSubscriptionUrl(url: string): void {
  */
 export async function listSubscriptions(db: D1Database): Promise<Subscription[]> {
   const stmt = db.prepare(
-    'SELECT id, url, title, category_id, created_at, last_fetched_at FROM subscriptions ORDER BY created_at ASC'
+    `SELECT s.id, s.url, s.title, s.category_id, s.created_at, s.last_fetched_at, s.fail_count, s.disabled,
+            (SELECT COUNT(*) FROM articles a WHERE a.subscription_id = s.id AND a.is_read = 0) AS unread_count
+     FROM subscriptions s ORDER BY s.created_at ASC`
   );
   const result = await stmt.all<SubscriptionRow>();
   return (result.results ?? []).map(rowToSubscription);
@@ -223,6 +241,65 @@ export async function deleteSubscription(db: D1Database, id: string): Promise<vo
  * Move a subscription to a different category.
  * Validates both subscription and category exist.
  */
+/**
+ * Update a subscription's title and/or RSS URL.
+ * Validates the URL format and checks it isn't used by another subscription.
+ * Throws notFoundError if the subscription doesn't exist.
+ */
+export async function updateSubscription(
+  db: D1Database,
+  id: string,
+  updates: { title?: string; url?: string }
+): Promise<Subscription> {
+  const existing = await db
+    .prepare('SELECT id FROM subscriptions WHERE id = ?')
+    .bind(id)
+    .first<{ id: string }>();
+  if (!existing) {
+    throw notFoundError(`Subscription not found: ${id}`);
+  }
+
+  if (updates.title !== undefined) {
+    const title = updates.title.trim();
+    if (!title || title.length > 200) {
+      throw validationError('Title must be 1-200 characters');
+    }
+    await db.prepare('UPDATE subscriptions SET title = ? WHERE id = ?').bind(title, id).run();
+  }
+
+  if (updates.url !== undefined) {
+    const url = updates.url.trim();
+    validateSubscriptionUrl(url);
+
+    // Dedup: the URL must not be used by a different subscription
+    const dup = await db
+      .prepare('SELECT id FROM subscriptions WHERE url = ? AND id != ?')
+      .bind(url, id)
+      .first<{ id: string }>();
+    if (dup) {
+      throw conflictError('URL is already used by another subscription');
+    }
+
+    await db
+      .prepare("UPDATE subscriptions SET url = ?, last_fetched_at = NULL, fail_count = 0, disabled = 0 WHERE id = ?")
+      .bind(url, id)
+      .run();
+  }
+
+  const updated = await db
+    .prepare(
+      `SELECT s.id, s.url, s.title, s.category_id, s.created_at, s.last_fetched_at, s.fail_count, s.disabled,
+              (SELECT COUNT(*) FROM articles a WHERE a.subscription_id = s.id AND a.is_read = 0) AS unread_count
+       FROM subscriptions s WHERE s.id = ?`
+    )
+    .bind(id)
+    .first<SubscriptionRow>();
+  if (!updated) {
+    throw notFoundError(`Subscription not found: ${id}`);
+  }
+  return rowToSubscription(updated);
+}
+
 export async function moveSubscription(
   db: D1Database,
   id: string,

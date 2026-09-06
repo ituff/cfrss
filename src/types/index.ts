@@ -13,6 +13,9 @@ export interface Subscription {
   categoryId: string;
   createdAt: string;     // ISO 8601
   lastFetchedAt: string | null;
+  failCount?: number;    // Consecutive refresh failures
+  disabled?: boolean;    // Marked abnormal after too many failures; skipped on refresh
+  unreadCount?: number;  // Unread articles (populated by list endpoint)
 }
 
 export interface Category {

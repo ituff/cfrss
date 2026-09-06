@@ -88,6 +88,9 @@ function buildHeaders(token: string): Record<string, string> {
     Authorization: `token ${token}`,
     Accept: 'application/vnd.github.v3+json',
     'Content-Type': 'application/json',
+    // GitHub API rejects requests without a User-Agent (Workers subrequests
+    // don't set one automatically) — a missing UA gets a 403.
+    'User-Agent': 'CFRSS-Reader',
   };
 }
 

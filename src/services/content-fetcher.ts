@@ -93,23 +93,26 @@ function parseRSS(xml: string): ParsedFeedResult {
 }
 
 function parseRSSItem(itemXml: string): ParsedArticle {
-  const title = extractTextContent(itemXml, 'title');
-  const link = extractTextContent(itemXml, 'link');
+  const title = decodeHtmlEntities(extractTextContent(itemXml, 'title'));
+  const link = decodeHtmlEntities(extractTextContent(itemXml, 'link'));
 
   // Author: prefer dc:creator, fallback to author
-  const author = extractNamespacedTextContent(itemXml, 'dc:creator')
-    || extractTextContent(itemXml, 'author');
+  const author = decodeHtmlEntities(
+    extractNamespacedTextContent(itemXml, 'dc:creator')
+    || extractTextContent(itemXml, 'author')
+  );
 
   // Date: pubDate in RFC 2822 format → convert to ISO 8601
-  const pubDate = extractTextContent(itemXml, 'pubDate');
+  const pubDate = decodeHtmlEntities(extractTextContent(itemXml, 'pubDate'));
   const publishedAt = pubDate ? rfc2822ToISO8601(pubDate) : '';
 
   // Summary: description
-  const summary = extractTextContent(itemXml, 'description');
+  const summary = decodeHtmlEntities(extractTextContent(itemXml, 'description'));
 
   // Full content: content:encoded
-  const htmlContent = extractNamespacedTextContent(itemXml, 'content:encoded')
-    || summary;
+  const htmlContent = decodeHtmlEntities(
+    extractNamespacedTextContent(itemXml, 'content:encoded') || summary
+  );
 
   return {
     title,
@@ -135,25 +138,25 @@ function parseAtom(xml: string): ParsedFeedResult {
 }
 
 function parseAtomEntry(entryXml: string): ParsedArticle {
-  const title = extractTextContent(entryXml, 'title');
+  const title = decodeHtmlEntities(extractTextContent(entryXml, 'title'));
 
   // Link: <link href="..."/> or <link href="..." rel="alternate"/>
-  const sourceUrl = extractAtomLink(entryXml);
+  const sourceUrl = decodeHtmlEntities(extractAtomLink(entryXml));
 
   // Author: <author><name>...</name></author>
   const authorBlock = extractTagContent(entryXml, 'author');
-  const author = authorBlock ? extractTextContent(authorBlock, 'name') : '';
+  const author = authorBlock ? decodeHtmlEntities(extractTextContent(authorBlock, 'name')) : '';
 
   // Date: prefer <published>, fallback to <updated> (already ISO 8601)
   const published = extractTextContent(entryXml, 'published');
   const updated = extractTextContent(entryXml, 'updated');
-  const publishedAt = published || updated || '';
+  const publishedAt = decodeHtmlEntities(published || updated || '');
 
   // Summary
-  const summary = extractTextContent(entryXml, 'summary');
+  const summary = decodeHtmlEntities(extractTextContent(entryXml, 'summary'));
 
   // Content
-  const htmlContent = extractTextContent(entryXml, 'content') || summary;
+  const htmlContent = decodeHtmlEntities(extractTextContent(entryXml, 'content') || summary);
 
   return {
     title,
@@ -353,13 +356,60 @@ export function rfc2822ToISO8601(dateStr: string): string {
   return trimmed;
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  hellip: '…', mdash: '—', ndash: '–', lsquo: '‘', rsquo: '’',
+  ldquo: '“', rdquo: '”', middot: '·', copy: '©', reg: '®', trade: '™',
+};
+
+/**
+ * Decode HTML entities (named and numeric) that survive XML text extraction,
+ * e.g. `&#43;` → '+' or `&amp;` → '&'.
+ */
+export function decodeHtmlEntities(input: string): string {
+  if (!input || !input.includes('&')) return input;
+  return input.replace(/&(#[xX]?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g, (match, code: string) => {
+    if (code.startsWith('#')) {
+      const num = code[1] === 'x' || code[1] === 'X'
+        ? parseInt(code.slice(2), 16)
+        : parseInt(code.slice(1), 10);
+      return Number.isFinite(num) ? String.fromCodePoint(num) : match;
+    }
+    return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+  });
+}
+
 // === Parallel Feed Refresh ===
 
 /** Default timeout per feed in milliseconds (15 seconds). */
 const FEED_FETCH_TIMEOUT_MS = 15_000;
 
+/** Maximum feed body size. Oversized feeds exhaust the Worker's memory/CPU
+ *  budget (Cloudflare error 1102), so they are rejected as a typed failure. */
+const MAX_FEED_SIZE_BYTES = 5 * 1024 * 1024;
+
+/** Only keep articles published today (last 24h) on refresh. Historic
+ *  back-catalog items are ignored to bound per-refresh work. */
+const REFRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** Parse at most the first 256KB of a feed body. Feeds list newest items
+ *  first, so today's articles live at the top — parsing the full body of
+ *  large feeds blows the free-tier CPU budget. */
+const PARSE_CAP_BYTES = 256 * 1024;
+
 /**
- * Fetch a single feed with a timeout via AbortController.
+ * Returns true if the article belongs to the refresh window. Articles without
+ * a parseable date are kept — they may still be current.
+ */
+export function isWithinRefreshWindow(publishedAt: string | null | undefined, nowMs: number = Date.now()): boolean {
+  if (!publishedAt) return true;
+  const ts = Date.parse(publishedAt);
+  if (Number.isNaN(ts)) return true;
+  return nowMs - ts <= REFRESH_WINDOW_MS;
+}
+
+/**
+ * Fetch a single feed with a timeout via AbortController and a hard size cap.
  * Returns the parsed articles or throws on failure.
  */
 export async function fetchSingleFeed(url: string, timeoutMs: number = FEED_FETCH_TIMEOUT_MS): Promise<ParsedArticle[]> {
@@ -367,11 +417,52 @@ export async function fetchSingleFeed(url: string, timeoutMs: number = FEED_FETC
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        // Many feed servers reject non-browser user agents with 403
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+        Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+      },
+    });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    const xml = await response.text();
+
+    const declaredLength = Number(response.headers.get('content-length') ?? '0');
+    if (declaredLength > MAX_FEED_SIZE_BYTES) {
+      throw new Error(`Feed too large: ${declaredLength} bytes (limit ${MAX_FEED_SIZE_BYTES})`);
+    }
+
+    // Stream-read with a hard cap so oversized bodies can't exhaust the Worker
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Empty response body');
+    }
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_FEED_SIZE_BYTES) {
+        controller.abort();
+        throw new Error(`Feed too large: exceeds ${MAX_FEED_SIZE_BYTES} bytes`);
+      }
+      chunks.push(value);
+    }
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    let xml = new TextDecoder().decode(merged);
+    if (total > PARSE_CAP_BYTES) {
+      // Truncated mid-document — close the root elements so the parser stops cleanly
+      xml = xml.slice(0, PARSE_CAP_BYTES) + '\n</channel></rss>';
+    }
+
     const result = parseFeed(xml);
     return result.articles;
   } catch (error: unknown) {
@@ -405,10 +496,13 @@ export async function refreshAllFeeds(
   const successes: FeedRefreshSuccess[] = [];
   const failures: FeedRefreshFailure[] = [];
 
+  const nowMs = Date.now();
   results.forEach((result, index) => {
     const sub = subscriptions[index];
     if (result.status === 'fulfilled') {
-      successes.push(result.value);
+      // Drop articles older than the refresh window
+      const recent = result.value.articles.filter((a) => isWithinRefreshWindow(a.publishedAt, nowMs));
+      successes.push({ subscriptionId: result.value.subscriptionId, articles: recent });
     } else {
       const errorMessage = result.reason instanceof Error
         ? result.reason.message

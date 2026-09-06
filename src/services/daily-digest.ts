@@ -97,15 +97,20 @@ function buildDigestPrompt(articles: Article[]): string {
     .map((a, i) => `${i + 1}. [${a.title}]${a.author ? ` by ${a.author}` : ''}\n   Summary: ${a.summary || 'No summary available'}`)
     .join('\n\n');
 
-  return `You are a helpful assistant that creates daily news digests. Based on the following ${articles.length} articles, create a concise daily digest in markdown format. Highlight key themes and important information.
-
-Articles:
-${articleList}
-
-Please generate a well-structured daily digest summary in markdown format. Include:
-- A brief overview of the main themes
-- Key highlights from the articles
-- Keep it concise but informative`;
+  return [
+    'You are a news digest editor. Based on the following ' + articles.length + ' articles, write a concise daily digest in Markdown.',
+    '',
+    'Requirements:',
+    '1. Start with a 2-3 sentence overview of the main themes of the day (no heading for it).',
+    '2. Group the articles into 2-5 themes, each theme as a second-level heading (## Theme).',
+    '3. One bullet per article, in this exact format: **Article Title** (Source) - one-sentence core takeaway, max 40 words.',
+    '4. Use only these Markdown constructs: second-level headings, bold, unordered lists. Do NOT use tables, horizontal rules, nested lists, or level-1 headings.',
+    '5. Write in the dominant language of the articles (Chinese articles -> Chinese digest; English articles -> English digest).',
+    '6. Keep the whole digest under 600 words. Output only the digest, no extra commentary.',
+    '',
+    'Articles:',
+    articleList,
+  ].join('\n');
 }
 
 /**

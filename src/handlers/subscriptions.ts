@@ -5,6 +5,8 @@ import {
   addSubscription,
   deleteSubscription,
   moveSubscription,
+  resetSubscriptionHealth,
+  updateSubscription,
 } from '../services/subscription-manager';
 import { validateUrl, probeUrl } from '../utils/url-validator';
 import { validationError } from '../utils/errors';
@@ -54,6 +56,43 @@ export async function handleAddSubscription(c: Context<{ Bindings: Env }>) {
   );
 
   return c.json({ subscription }, 201);
+}
+
+/**
+ * PUT /api/subscriptions/:id
+ *
+ * Update a subscription's title and/or RSS URL.
+ * Accepts { title?: string, url?: string } — both optional.
+ */
+export async function handleUpdateSubscription(c: Context<{ Bindings: Env }>) {
+  const db = c.env.DB;
+  const id = c.req.param('id')!;
+  const body = await c.req.json<{ title?: string; url?: string }>();
+
+  const updates: { title?: string; url?: string } = {};
+  if (body.title !== undefined) updates.title = body.title;
+  if (body.url !== undefined) updates.url = body.url;
+
+  if (Object.keys(updates).length === 0) {
+    throw validationError('Provide at least one of title or url');
+  }
+
+  const subscription = await updateSubscription(db, id, updates);
+  return c.json({ subscription });
+}
+
+/**
+ * PUT /api/subscriptions/:id/enable
+ *
+ * Re-enables a subscription that was marked abnormal (disabled) after
+ * repeated refresh failures: resets the failure counter and re-enables it.
+ */
+export async function handleEnableSubscription(c: Context<{ Bindings: Env }>) {
+  const db = c.env.DB;
+  const id = c.req.param('id')!;
+
+  await resetSubscriptionHealth(db, id);
+  return c.json({ success: true });
 }
 
 /**

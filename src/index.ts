@@ -11,6 +11,8 @@ import {
   handleAddSubscription,
   handleDeleteSubscription,
   handleMoveSubscription,
+  handleEnableSubscription,
+  handleUpdateSubscription,
 } from './handlers/subscriptions';
 import { handleImportOPML, handleExportOPML } from './handlers/opml';
 import { handleListArticles, handleGetArticle, handleRefreshFeeds } from './handlers/articles';
@@ -43,6 +45,8 @@ app.get('/api/subscriptions', handleListSubscriptions);
 app.post('/api/subscriptions', handleAddSubscription);
 app.delete('/api/subscriptions/:id', handleDeleteSubscription);
 app.put('/api/subscriptions/:id/category', handleMoveSubscription);
+app.put('/api/subscriptions/:id/enable', handleEnableSubscription);
+app.put('/api/subscriptions/:id', handleUpdateSubscription);
 
 // --- Category Management ---
 app.get('/api/categories', handleListCategories);
