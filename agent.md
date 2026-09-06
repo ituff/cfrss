@@ -85,8 +85,7 @@ npx wrangler d1 migrations apply cfrss-db --remote  # 应用 D1 迁移（线上�
 
 ### Git 状态
 
-- 分支 `main`，仅 2 个提交（`Initial commit` → `1、Project Initial Successs`），整个实现集中在初始提交中
-- 未提交变更：`.gitignore` 新增了 `.kiro/` 忽略项（尚未提交）
+- 分支 `main`，远程 `origin` = github.com/ituff/cfrss（本地提交未推送）。提交历史：配置与依赖 → 后端功能 → 前端 UI → 文档（2026-09-06 整理）
 
 ### 部署状态（2026-09-05 已部署）✅
 
