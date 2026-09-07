@@ -3,6 +3,9 @@
  * article preview list, and reading pane side by side.
  * Stays mounted across home/articles/article-detail routes; only the
  * selection and the reader react to route changes.
+ *
+ * Filter state lives in the route query (?subscription= / ?category=) so it
+ * survives opening an article (article-detail keeps the query).
  */
 
 import { navigate, type Route } from '../router.js';
@@ -10,12 +13,32 @@ import { ArticlePane } from './article-pane.js';
 import { FeedTree } from './feed-tree.js';
 import { ArticleView } from './article/ArticleView.js';
 import { t } from '../services/i18n.js';
-import type { Subscription } from '../../types/index.js';
+import type { Subscription, Category } from '../../types/index.js';
 
 const MAIN_ROUTES = new Set(['home', 'articles', 'article-detail']);
 
 export function isMainRoute(path: string): boolean {
   return MAIN_ROUTES.has(path);
+}
+
+interface PaneFilter {
+  feedId: string | null;
+  categoryId: string | null;
+}
+
+/** Extract the filter from route query params. */
+function filterFromRoute(route: Route): PaneFilter {
+  return {
+    feedId: route.query.subscription ?? null,
+    categoryId: route.query.category ?? null,
+  };
+}
+
+/** Build the query string preserving the filter for detail URLs. */
+function filterQuery(filter: PaneFilter): string {
+  if (filter.feedId) return `?subscription=${filter.feedId}`;
+  if (filter.categoryId) return `?category=${filter.categoryId}`;
+  return '';
 }
 
 export class MainView {
@@ -26,7 +49,9 @@ export class MainView {
   private readerContainer: HTMLElement | null = null;
   private reader: ArticleView | null = null;
   private feeds: Subscription[] = [];
+  private categories: Category[] = [];
   private generation = 0;
+  private currentFilter: PaneFilter = { feedId: null, categoryId: null };
 
   constructor(container: HTMLElement, route: Route) {
     this.element = document.createElement('div');
@@ -54,35 +79,49 @@ export class MainView {
     this.readerContainer.className = 'main-view__reader';
     this.element.appendChild(this.readerContainer);
 
-    this.tree = new FeedTree(treeHost, this.route.query.subscription ?? null, (feedId) => {
-      this.selectedFeedId = feedId;
-      this.tree?.setSelected(feedId);
-      this.pane?.setFeed(feedId);
-      // Navigate to the articles list route for the selected feed
-      navigate(feedId ? `/articles?subscription=${feedId}` : '/articles');
+    this.currentFilter = filterFromRoute(this.route);
+    this.tree = new FeedTree(treeHost, this.treeSelectionFromFilter(this.currentFilter), (selection) => {
+      // Tree selection is the single source of truth: reflect it into the route
+      if (selection === null) {
+        navigate('/articles');
+      } else if (selection.startsWith('cat:')) {
+        navigate(`/articles?category=${selection.slice(4)}`);
+      } else {
+        navigate(`/articles?subscription=${selection}`);
+      }
     });
 
-    // Feed metadata for card headers
+    // Feed/category metadata for card headers
     try {
-      const { getSubscriptions } = await import('../services/api.js');
-      this.feeds = await getSubscriptions();
+      const { getSubscriptions, getCategories } = await import('../services/api.js');
+      const [subs, cats] = await Promise.all([getSubscriptions(), getCategories()]);
+      this.feeds = subs;
+      this.categories = cats;
     } catch {
       this.feeds = [];
+      this.categories = [];
     }
     if (gen !== this.generation) return;
 
-    this.pane = new ArticlePane(paneHost, this.route.query.subscription ?? null, {
-      onSelect: (id) => navigate(`/articles/${id}`),
+    this.pane = new ArticlePane(paneHost, this.currentFilter, {
+      onSelect: (id) => navigate(`/articles/${id}${filterQuery(this.currentFilter)}`),
       feedTitleOf: (subscriptionId) =>
         this.feeds.find((f) => f.id === subscriptionId)?.title ?? t('articles'),
       feedUrlOf: (subscriptionId) =>
         this.feeds.find((f) => f.id === subscriptionId)?.url ?? '',
+      categoryTitleOf: (categoryId) =>
+        this.categories.find((c) => c.id === categoryId)?.name ?? t('all_articles'),
     });
 
     this.syncFromRoute();
   }
 
-  private selectedFeedId: string | null = null;
+  /** Map a filter to the tree's selection string ('cat:<id>' / feed id / null). */
+  private treeSelectionFromFilter(filter: PaneFilter): string | null {
+    if (filter.feedId) return filter.feedId;
+    if (filter.categoryId) return `cat:${filter.categoryId}`;
+    return null;
+  }
 
   update(route: Route): void {
     this.route = route;
@@ -101,15 +140,15 @@ export class MainView {
   }
 
   /**
-   * React to a route change: sync feed filter from query params and load
-   * the selected article into the reader pane.
+   * React to a route change: sync feed/category filter from query params and
+   * load the selected article into the reader pane.
    */
   private syncFromRoute(): void {
-    const queryFeed = this.route.query.subscription ?? null;
-    if (queryFeed !== this.selectedFeedId) {
-      this.selectedFeedId = queryFeed;
-      this.tree?.setSelected(queryFeed);
-      this.pane?.setFeed(queryFeed);
+    const filter = filterFromRoute(this.route);
+    if (filter.feedId !== this.currentFilter.feedId || filter.categoryId !== this.currentFilter.categoryId) {
+      this.currentFilter = filter;
+      this.tree?.setSelected(this.treeSelectionFromFilter(filter));
+      this.pane?.setFilter(filter);
     }
 
     if (this.route.path === 'article-detail' && this.route.params.id) {

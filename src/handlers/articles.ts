@@ -36,6 +36,12 @@ export async function handleListArticles(c: Context<{ Bindings: Env }>) {
     params.push(subscriptionId);
   }
 
+  const categoryId = c.req.query('categoryId');
+  if (categoryId) {
+    conditions.push('subscription_id IN (SELECT id FROM subscriptions WHERE category_id = ?)');
+    params.push(categoryId);
+  }
+
   if (conditions.length > 0) {
     sql += ' WHERE ' + conditions.join(' AND ');
   }

@@ -30,6 +30,7 @@ export interface ArticleListResponse {
 export interface ArticleListOptions {
   unread?: boolean;
   subscriptionId?: string;
+  categoryId?: string;
   limit?: number;
   offset?: number;
 }
@@ -357,6 +358,7 @@ export async function getArticles(opts?: ArticleListOptions): Promise<ArticleLis
   const params = new URLSearchParams();
   if (opts?.unread) params.set('unread', 'true');
   if (opts?.subscriptionId) params.set('subscriptionId', opts.subscriptionId);
+  if (opts?.categoryId) params.set('categoryId', opts.categoryId);
   if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
   if (opts?.offset !== undefined) params.set('offset', String(opts.offset));
 

@@ -28,16 +28,17 @@ export class FeedTree {
   private feeds: Subscription[] = [];
   private categories: Category[] = [];
   private collapsed: Set<string> = new Set();
-  private selectedFeedId: string | null = null;
-  private onSelect: (feedId: string | null) => void;
+  /** null = all articles, 'cat:<id>' = category, feed id = single feed */
+  private selection: string | null = null;
+  private onSelect: (selection: string | null) => void;
   private unsubscribeLang: (() => void) | null = null;
   private loading = true;
 
-  constructor(container: HTMLElement, selectedFeedId: string | null, onSelect: (feedId: string | null) => void) {
+  constructor(container: HTMLElement, selection: string | null, onSelect: (selection: string | null) => void) {
     this.element = document.createElement('nav');
     this.element.className = 'feed-tree';
     this.element.setAttribute('aria-label', 'Feeds');
-    this.selectedFeedId = selectedFeedId;
+    this.selection = selection;
     this.onSelect = onSelect;
     this.unsubscribeLang = onLanguageChange(() => this.render());
     container.appendChild(this.element);
@@ -70,14 +71,17 @@ export class FeedTree {
     this.render();
   }
 
-  /** Update the highlighted feed without reloading data. */
-  setSelected(feedId: string | null): void {
-    this.selectedFeedId = feedId;
+  /** Update the highlighted selection without reloading data. */
+  setSelected(selection: string | null): void {
+    this.selection = selection;
     this.element.querySelectorAll('.feed-tree__feed').forEach((el) => {
-      el.classList.toggle('active', el.getAttribute('data-feed-id') === (feedId ?? ''));
+      el.classList.toggle('active', el.getAttribute('data-feed-id') === (selection ?? ''));
     });
     this.element.querySelectorAll('.feed-tree__all').forEach((el) => {
-      el.classList.toggle('active', feedId === null);
+      el.classList.toggle('active', selection === null);
+    });
+    this.element.querySelectorAll('.feed-tree__category').forEach((el) => {
+      el.classList.toggle('active', el.getAttribute('data-cat-id') === (selection ?? ''));
     });
   }
 
@@ -91,7 +95,7 @@ export class FeedTree {
     // "All articles" root entry
     const allUnread = this.feeds.reduce((sum, f) => sum + this.unreadFor(f), 0);
     const allItem = document.createElement('div');
-    allItem.className = `feed-tree__all${this.selectedFeedId === null ? ' active' : ''}`;
+    allItem.className = `feed-tree__all${this.selection === null ? ' active' : ''}`;
     allItem.setAttribute('role', 'button');
     allItem.tabIndex = 0;
     allItem.innerHTML = `
@@ -114,25 +118,29 @@ export class FeedTree {
       const unread = feeds.reduce((sum, f) => sum + this.unreadFor(f), 0);
       const isCollapsed = this.collapsed.has(category.id);
 
+      const isSelected = this.selection === `cat:${category.id}`;
       const header = document.createElement('div');
-      header.className = 'feed-tree__category';
+      header.className = `feed-tree__category${isSelected ? ' active' : ''}`;
+      header.setAttribute('data-cat-id', `cat:${category.id}`);
       header.setAttribute('role', 'button');
       header.tabIndex = 0;
       header.innerHTML = `
-        <span class="feed-tree__chevron">${isCollapsed ? '▸' : '▾'}</span>
+        <span class="feed-tree__chevron" role="button" aria-label="collapse">${isCollapsed ? '▸' : '▾'}</span>
         <span class="feed-tree__category-name">${escapeHtml(category.name)}</span>
         <span class="feed-tree__count">${unread || ''}</span>`;
-      header.addEventListener('click', () => {
+      header.querySelector('.feed-tree__chevron')?.addEventListener('click', (e) => {
+        e.stopPropagation();
         if (isCollapsed) this.collapsed.delete(category.id);
         else this.collapsed.add(category.id);
         this.render();
       });
+      header.addEventListener('click', () => this.onSelect(`cat:${category.id}`));
       this.element.appendChild(header);
 
       if (!isCollapsed) {
         for (const feed of feeds) {
           const item = document.createElement('div');
-          item.className = `feed-tree__feed${this.selectedFeedId === feed.id ? ' active' : ''}${feed.disabled ? ' disabled' : ''}`;
+          item.className = `feed-tree__feed${this.selection === feed.id ? ' active' : ''}${feed.disabled ? ' disabled' : ''}`;
           item.setAttribute('data-feed-id', feed.id);
           item.setAttribute('role', 'button');
           item.tabIndex = 0;

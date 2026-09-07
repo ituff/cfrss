@@ -16,6 +16,8 @@ export interface ArticlePaneOptions {
   /** feed title lookup for card headers */
   feedTitleOf: (subscriptionId: string) => string;
   feedUrlOf: (subscriptionId: string) => string;
+  /** category title lookup for the pane header */
+  categoryTitleOf: (categoryId: string) => string;
 }
 
 interface PaneArticle extends Article {
@@ -54,6 +56,7 @@ export class ArticlePane {
   private hasMore = true;
   private offset = 0;
   private feedId: string | null = null;
+  private categoryId: string | null = null;
   private unreadOnly = false;
   private selectedId: string | null = null;
   private options: ArticlePaneOptions;
@@ -63,10 +66,11 @@ export class ArticlePane {
   private scrollEl: HTMLElement | null = null;
   private refreshing = false;
 
-  constructor(container: HTMLElement, feedId: string | null, options: ArticlePaneOptions) {
+  constructor(container: HTMLElement, filter: { feedId: string | null; categoryId: string | null }, options: ArticlePaneOptions) {
     this.element = document.createElement('section');
     this.element.className = 'article-pane';
-    this.feedId = feedId;
+    this.feedId = filter.feedId;
+    this.categoryId = filter.categoryId;
     this.options = options;
     this.unsubscribeLang = onLanguageChange(() => this.render());
     container.appendChild(this.element);
@@ -98,10 +102,11 @@ export class ArticlePane {
     }
   }
 
-  /** Change the feed filter and reload. */
-  setFeed(feedId: string | null): void {
-    if (feedId === this.feedId) return;
-    this.feedId = feedId;
+  /** Change the feed/category filter and reload. */
+  setFilter(filter: { feedId: string | null; categoryId: string | null }): void {
+    if (filter.feedId === this.feedId && filter.categoryId === this.categoryId) return;
+    this.feedId = filter.feedId;
+    this.categoryId = filter.categoryId;
     void this.reload();
   }
 
@@ -131,6 +136,7 @@ export class ArticlePane {
     try {
       const data = await getArticles({
         subscriptionId: this.feedId ?? undefined,
+        categoryId: this.categoryId ?? undefined,
         unread: this.unreadOnly || undefined,
         limit: PAGE_SIZE,
         offset: this.offset,
@@ -196,7 +202,9 @@ export class ArticlePane {
     this.headerTitleEl.className = 'article-pane__title';
     this.headerTitleEl.textContent = this.feedId
       ? (this.options.feedTitleOf(this.feedId) || t('articles'))
-      : t('all_articles');
+      : this.categoryId
+        ? this.options.categoryTitleOf(this.categoryId)
+        : t('all_articles');
 
     const actions = document.createElement('div');
     actions.className = 'article-pane__actions';

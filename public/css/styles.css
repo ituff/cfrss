@@ -1466,3 +1466,13 @@ button, a, [role="button"] {
   background-color: var(--color-primary);
   color: #fff;
 }
+
+/* Selected category in the feed tree */
+.feed-tree__category.active {
+  background-color: var(--color-bg-secondary);
+}
+
+.feed-tree__category.active .feed-tree__category-name {
+  color: var(--color-primary);
+  font-weight: 600;
+}
