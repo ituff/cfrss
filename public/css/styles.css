@@ -1476,3 +1476,66 @@ button, a, [role="button"] {
   color: var(--color-primary);
   font-weight: 600;
 }
+
+/* ===== Feed tree refinement (Folo-like) ===== */
+.main-view__tree {
+  width: 232px;
+  padding: 8px 6px;
+}
+
+.feed-tree__all,
+.feed-tree__category,
+.feed-tree__feed {
+  justify-content: flex-start;
+  text-align: left;
+  min-height: 30px;
+  padding: 4px 8px;
+  gap: 6px;
+  border-radius: 6px;
+}
+
+.feed-tree__chevron {
+  width: 16px;
+  font-size: 9px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.feed-tree__category-name,
+.feed-tree__all-name {
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.1px;
+}
+
+.feed-tree__feed {
+  padding-left: 30px;
+}
+
+.feed-tree__favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.feed-tree__count {
+  font-size: 11px;
+}
+
+.feed-tree__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background-color: #f28b24;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+/* Chevron: compact (override global 44px touch-target utility) */
+.feed-tree__chevron {
+  width: 16px;
+  min-width: 16px;
+  min-height: 24px;
+  background: none;
+  border: none;
+}

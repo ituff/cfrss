@@ -14,12 +14,17 @@ export interface FeedTreeSelection {
   feedId: string | null;
 }
 
-function faviconUrl(feedUrl: string): string {
+function faviconCandidates(feedUrl: string): string[] {
   try {
     const u = new URL(feedUrl);
-    return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+    // Direct favicon first (Google's s2 service is unreachable in some regions),
+    // then the Google fallback.
+    return [
+      `${u.origin}/favicon.ico`,
+      `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`,
+    ];
   } catch {
-    return '';
+    return [];
   }
 }
 
@@ -148,10 +153,19 @@ export class FeedTree {
 
           const icon = document.createElement('img');
           icon.className = 'feed-tree__favicon';
-          icon.src = faviconUrl(feed.url);
           icon.alt = '';
           icon.loading = 'lazy';
-          icon.onerror = () => { icon.style.visibility = 'hidden'; };
+          const candidates = faviconCandidates(feed.url);
+          let candidateIndex = 0;
+          if (candidates.length > 0) icon.src = candidates[0];
+          icon.onerror = () => {
+            candidateIndex++;
+            if (candidateIndex < candidates.length) {
+              icon.src = candidates[candidateIndex];
+            } else {
+              icon.style.visibility = 'hidden';
+            }
+          };
 
           const name = document.createElement('span');
           name.className = 'feed-tree__feed-name';
@@ -164,6 +178,14 @@ export class FeedTree {
           item.appendChild(icon);
           item.appendChild(name);
           item.appendChild(count);
+
+          // Folo-style unread dot at the right edge
+          if (this.unreadFor(feed) > 0) {
+            const dot = document.createElement('span');
+            dot.className = 'feed-tree__dot';
+            item.appendChild(dot);
+          }
+
           item.addEventListener('click', () => this.onSelect(feed.id));
           this.element.appendChild(item);
         }
