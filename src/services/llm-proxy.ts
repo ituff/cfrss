@@ -50,6 +50,7 @@ export async function streamLLMResponse(config: LLMStreamConfig): Promise<Readab
           model: config.modelName,
           messages: config.messages,
           stream: true,
+          enable_thinking: false,
           ...(config.maxTokens !== undefined && { max_tokens: config.maxTokens }),
         }),
         signal: controller.signal,

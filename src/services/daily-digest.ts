@@ -164,6 +164,7 @@ async function callLLMForDigest(db: D1Database, encKey: string, articles: Articl
           model: config.model_name,
           messages: [{ role: 'user', content: prompt }],
           stream: false,
+          enable_thinking: false,
         }),
         signal: controller.signal,
       });

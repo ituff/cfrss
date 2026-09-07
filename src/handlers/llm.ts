@@ -91,7 +91,10 @@ export async function handleSummarizeArticle(c: Context<{ Bindings: Env }>) {
     ? `Title: ${article.title}\n\n${article.summary}`
     : `Title: ${article.title}`;
 
-  const prompt = `Summarize the following article in no more than 300 words:\n\n${articleContent}`;
+  // Follow the language configured in Settings
+  const uiLang = await getLanguage(db);
+  const langName = uiLang === 'zh' ? 'Chinese' : 'English';
+  const prompt = `Summarize the following article in no more than 300 words. Write the summary in ${langName}:\n\n${articleContent}`;
 
   // Stream LLM response
   const stream = await streamLLMResponse({
@@ -182,16 +185,8 @@ export async function handleTranslateArticle(c: Context<{ Bindings: Env }>) {
   const articleId = body.articleId;
 
   // Determine target language
-  let targetLanguage: 'zh' | 'en';
-  if (body.targetLanguage === 'zh' || body.targetLanguage === 'en') {
-    targetLanguage = body.targetLanguage;
-  } else if (body.targetLanguage) {
-    throw validationError('targetLanguage must be "zh" or "en"');
-  } else {
-    // Use user's configured language, default to 'en'
-    const userLang = await getLanguage(db);
-    targetLanguage = userLang ?? 'en';
-  }
+  // The language configured in Settings is authoritative (client UI language may differ)
+  let targetLanguage: 'zh' | 'en' = (await getLanguage(db)) ?? 'en';
 
   const functionName = `translate_${targetLanguage}`;
 
@@ -239,7 +234,7 @@ export async function handleTranslateArticle(c: Context<{ Bindings: Env }>) {
   // Build prompt
   const targetLangName = targetLanguage === 'zh' ? 'Chinese' : 'English';
   const articleContent = article.summary || article.title;
-  const prompt = `Translate the following article to ${targetLangName}:\n\n${articleContent}`;
+  const prompt = `Translate the following article into ${targetLangName}. Output only the ${targetLangName} translation.\n\n${articleContent}`;
 
   // Stream LLM response
   const stream = await streamLLMResponse({
