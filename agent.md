@@ -99,7 +99,7 @@ npx wrangler d1 migrations apply cfrss-db --remote  # 应用 D1 迁移（线上�
 ### 部署状态（2026-09-05 已部署）✅
 
 - **线上地址**：`https://rss.maowoo.top`（自定义域名，workers.dev 入口已关闭——workers.dev 在大陆被墙）
-- **D1 数据库**：`cfrss-db`（id `61cdf440-f09f-4f5c-a52d-25632704913a`，区域 EEUR），迁移已应用
+- **D1 数据库**：`cfrss-db`（id 见 `wrangler.toml`），迁移已应用
 - **Secrets**：`AUTH_TOKEN` 与 `ENCRYPTION_KEY` 已配置；本地留档于 `.dev-secrets.env`（已 gitignore）
 - **构建链**：wrangler 4.129.0 + @cloudflare/workers-types v5（wrangler 3 不支持 `run_worker_first` 数组）
 - **已验证**：首页 200、API 鉴权 200、SPA 路由回退 200（从本地网络实测）
