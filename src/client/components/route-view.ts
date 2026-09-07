@@ -143,25 +143,41 @@ export class RouteView {
    */
   private mountSettings(view: HTMLElement): Mountable {
     const sections: Array<{
+      icon: string;
       titleKey: string;
+      descKey: string;
       component: { getElement(): HTMLElement; destroy(): void };
     }> = [
-      { titleKey: 'theme', component: new ThemeToggle() },
-      { titleKey: 'language', component: new LanguageSwitch() },
-      { titleKey: 'llm_config', component: new LLMConfigPanel() },
-      { titleKey: 'github_config', component: new GitHubConfigPanel() },
+      { icon: '🎨', titleKey: 'theme', descKey: 'settings_theme_desc', component: new ThemeToggle() },
+      { icon: '🌐', titleKey: 'language', descKey: 'settings_language_desc', component: new LanguageSwitch() },
+      { icon: '🤖', titleKey: 'llm_config', descKey: 'settings_llm_desc', component: new LLMConfigPanel() },
+      { icon: '🐙', titleKey: 'github_config', descKey: 'settings_github_desc', component: new GitHubConfigPanel() },
     ];
 
     const wrap = document.createElement('div');
     wrap.className = 'settings-view';
 
+    // Page header
+    const pageHeader = document.createElement('div');
+    pageHeader.className = 'settings-page-header';
+    const pageTitle = document.createElement('h2');
+    pageTitle.className = 'settings-page-title';
+    pageTitle.textContent = t('settings');
+    pageHeader.appendChild(pageTitle);
+    wrap.appendChild(pageHeader);
+
     for (const section of sections) {
       const sectionEl = document.createElement('section');
       sectionEl.className = 'settings-section';
 
-      const heading = document.createElement('h2');
+      const heading = document.createElement('div');
       heading.className = 'settings-heading';
-      heading.textContent = t(section.titleKey);
+      heading.innerHTML = `
+        <span class="settings-heading__icon" aria-hidden="true">${section.icon}</span>
+        <div class="settings-heading__text">
+          <span class="settings-heading__title">${t(section.titleKey)}</span>
+          <span class="settings-heading__desc">${t(section.descKey)}</span>
+        </div>`;
 
       sectionEl.appendChild(heading);
       sectionEl.appendChild(section.component.getElement());
