@@ -1438,3 +1438,31 @@ button, a, [role="button"] {
 .settings-section [class*="__hint"] {
   font-size: 13px;
 }
+
+/* Article pane segmented unread/all filter */
+.article-pane__seg {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.article-pane__seg-btn {
+  min-height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.article-pane__seg-btn:hover {
+  color: var(--color-text);
+}
+
+.article-pane__seg-btn.active {
+  background-color: var(--color-primary);
+  color: #fff;
+}

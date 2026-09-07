@@ -87,6 +87,17 @@ export class ArticlePane {
     return this.articles.map((a) => a.id);
   }
 
+  /** Update a card's read state locally (no refetch). */
+  markRead(articleId: string): void {
+    const article = this.articles.find((a) => a.id === articleId);
+    if (article && !article.isRead) {
+      article.isRead = true;
+      this.element
+        .querySelector(`.article-pane__card[data-id="${articleId}"]`)
+        ?.classList.add('read');
+    }
+  }
+
   /** Change the feed filter and reload. */
   setFeed(feedId: string | null): void {
     if (feedId === this.feedId) return;
@@ -191,13 +202,33 @@ export class ArticlePane {
     actions.className = 'article-pane__actions';
 
     const unreadBtn = document.createElement('button');
-    unreadBtn.className = `article-pane__action${this.unreadOnly ? ' active' : ''}`;
-    unreadBtn.textContent = this.unreadOnly ? t('unread') : t('all');
+    unreadBtn.className = `article-pane__seg-btn${this.unreadOnly ? ' active' : ''}`;
+    unreadBtn.textContent = t('unread');
     unreadBtn.title = t('unread_only');
     unreadBtn.addEventListener('click', () => {
-      this.unreadOnly = !this.unreadOnly;
-      void this.reload();
+      if (!this.unreadOnly) {
+        this.unreadOnly = true;
+        void this.reload();
+      }
     });
+
+    const allBtn = document.createElement('button');
+    allBtn.className = `article-pane__seg-btn${this.unreadOnly ? '' : ' active'}`;
+    allBtn.textContent = t('all');
+    allBtn.title = t('all');
+    allBtn.addEventListener('click', () => {
+      if (this.unreadOnly) {
+        this.unreadOnly = false;
+        void this.reload();
+      }
+    });
+
+    // Segmented unread/all filter
+    const seg = document.createElement('div');
+    seg.className = 'article-pane__seg';
+    seg.setAttribute('role', 'tablist');
+    seg.appendChild(unreadBtn);
+    seg.appendChild(allBtn);
 
     const refreshBtn = document.createElement('button');
     refreshBtn.className = 'article-pane__action article-pane__refresh';
@@ -205,7 +236,7 @@ export class ArticlePane {
     refreshBtn.title = t('refresh');
     refreshBtn.addEventListener('click', () => void this.handleRefresh());
 
-    actions.appendChild(unreadBtn);
+    actions.appendChild(seg);
     actions.appendChild(refreshBtn);
     header.appendChild(this.headerTitleEl);
     header.appendChild(actions);

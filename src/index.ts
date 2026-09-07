@@ -16,7 +16,7 @@ import {
   handleUpdateSubscription,
 } from './handlers/subscriptions';
 import { handleImportOPML, handleExportOPML } from './handlers/opml';
-import { handleListArticles, handleGetArticle, handleRefreshFeeds } from './handlers/articles';
+import { handleListArticles, handleGetArticle, handleRefreshFeeds, handleUpdateReadState } from './handlers/articles';
 import { handleGetGitHubConfig, handleSetGitHubConfig, handleTestGitHubConfig } from './handlers/github-config';
 import { handleSummarizeArticle, handleTranslateArticle, handleGetDailyDigest, handleGenerateDailyDigest } from './handlers/llm';
 import {
@@ -63,6 +63,7 @@ app.get('/api/opml/export', handleExportOPML);
 app.get('/api/articles', handleListArticles);
 app.get('/api/articles/:id', handleGetArticle);
 app.post('/api/articles/refresh', handleRefreshFeeds);
+app.put('/api/articles/:id/read', handleUpdateReadState);
 
 // --- LLM Features ---
 app.post('/api/llm/summarize', handleSummarizeArticle);

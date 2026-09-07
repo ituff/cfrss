@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import type { Env } from '../types';
 import { getArticleContent, loadGitHubConfig } from '../services/content-store';
 import { refreshSubscriptionsAndStore } from '../services/feed-refresh';
-import { notFoundError } from '../utils/errors';
+import { notFoundError, validationError } from '../utils/errors';
 import { parsePageLimit, isApproachingCpuLimit, markTruncated } from '../middleware/cpu-monitor';
 
 /**
@@ -102,6 +102,33 @@ export async function handleGetArticle(c: Context<{ Bindings: Env }>) {
  * inserts new articles into D1 (deduplicating by source_url), and returns
  * a summary of the refresh operation.
  */
+/**
+ * PUT /api/articles/:id/read
+ *
+ * Marks an article read or unread.
+ * Accepts { isRead: boolean } in the request body.
+ */
+export async function handleUpdateReadState(c: Context<{ Bindings: Env }>) {
+  const db = c.env.DB;
+  const id = c.req.param('id')!;
+  const body = await c.req.json<{ isRead?: boolean }>();
+
+  if (typeof body.isRead !== 'boolean') {
+    throw validationError('isRead is required and must be a boolean');
+  }
+
+  const result = await db
+    .prepare('UPDATE articles SET is_read = ? WHERE id = ?')
+    .bind(body.isRead ? 1 : 0, id)
+    .run();
+
+  if ((result.meta.changes ?? 0) === 0) {
+    throw notFoundError(`Article not found: ${id}`);
+  }
+
+  return c.json({ success: true, isRead: body.isRead });
+}
+
 export async function handleRefreshFeeds(c: Context<{ Bindings: Env }>) {
   const db = c.env.DB;
 

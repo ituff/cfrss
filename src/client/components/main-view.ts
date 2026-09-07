@@ -160,6 +160,9 @@ export class MainView {
     void this.reader.init();
 
     // Marking read changes unread counts — refresh the tree shortly after
-    setTimeout(() => void this.tree?.reload(), 1500);
+    setTimeout(() => {
+      this.pane?.markRead(articleId);
+      void this.tree?.reload();
+    }, 1500);
   }
 }
