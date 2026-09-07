@@ -10,6 +10,8 @@
 
 import { navigate } from '../../router.js';
 import { t } from '../../services/i18n.js';
+import { ArticleSummary } from '../llm/ArticleSummary.js';
+import { ArticleTranslation } from '../llm/ArticleTranslation.js';
 import { ArticleSwipeNavigator } from '../../gestures.js';
 import { getCurrentArticleId, setCurrentArticleId } from '../../state.js';
 
@@ -38,6 +40,10 @@ export class ArticleView {
   private swipeNavigator: ArticleSwipeNavigator | null = null;
   private getArticleIds: () => string[];
   private boundaryMsgTimeout: ReturnType<typeof setTimeout> | null = null;
+  private summary: ArticleSummary | null = null;
+  private translation: ArticleTranslation | null = null;
+  private llmHost: HTMLElement | null = null;
+  private bodyEl: HTMLElement | null = null;
 
   constructor(options: ArticleViewOptions) {
     this.container = options.container;
@@ -70,6 +76,7 @@ export class ArticleView {
    * Clean up event listeners and gesture detectors.
    */
   destroy(): void {
+    this.teardownLlmPanels();
     this.swipeNavigator?.detach();
     this.swipeNavigator = null;
     if (this.boundaryMsgTimeout) {
@@ -115,6 +122,7 @@ export class ArticleView {
   private renderArticle(): void {
     if (!this.article) return;
 
+    this.teardownLlmPanels();
     this.container.innerHTML = '';
 
     const view = document.createElement('article');
@@ -149,10 +157,15 @@ export class ArticleView {
       </button>
     `;
 
+    // LLM panels host (summary / translation render here)
+    this.llmHost = document.createElement('div');
+    this.llmHost.className = 'article-view-llm';
+
     // Article body (HTML content rendered directly)
     const body = document.createElement('div');
     body.className = 'article-view-body';
     body.innerHTML = this.article.htmlContent;
+    this.bodyEl = body;
 
     // Source link
     const sourceLink = document.createElement('footer');
@@ -173,6 +186,7 @@ export class ArticleView {
 
     view.appendChild(header);
     view.appendChild(actions);
+    view.appendChild(this.llmHost);
     view.appendChild(body);
     view.appendChild(sourceLink);
     view.appendChild(boundaryMsg);
@@ -234,15 +248,82 @@ export class ArticleView {
     const translateBtn = actions.querySelector('.action-translate');
     const readAloudBtn = actions.querySelector('.action-read-aloud');
 
-    summarizeBtn?.addEventListener('click', () => {
-      this.dispatchAction('summarize');
-    });
-    translateBtn?.addEventListener('click', () => {
-      this.dispatchAction('translate');
-    });
+    summarizeBtn?.addEventListener('click', () => this.toggleSummary());
+    translateBtn?.addEventListener('click', () => this.toggleTranslation());
     readAloudBtn?.addEventListener('click', () => {
       this.dispatchAction('read-aloud');
     });
+  }
+
+  /**
+   * Toggle the LLM summary panel above the article body.
+   */
+  private toggleSummary(): void {
+    if (!this.llmHost || !this.article) return;
+
+    if (this.summary) {
+      this.summary.destroy();
+      this.summary = null;
+      this.llmHost.querySelector('.summary-slot')?.remove();
+      return;
+    }
+
+    const slot = document.createElement('div');
+    slot.className = 'summary-slot';
+    this.llmHost.appendChild(slot);
+
+    this.summary = new ArticleSummary({
+      container: slot,
+      articleId: this.articleId,
+    });
+    void this.summary.start();
+  }
+
+  /**
+   * Toggle the translation panel; restores the original body on close.
+   */
+  private toggleTranslation(): void {
+    if (!this.llmHost || !this.bodyEl || !this.article) return;
+
+    if (this.translation) {
+      this.closeTranslation();
+      return;
+    }
+
+    const slot = document.createElement('div');
+    slot.className = 'translation-slot';
+    this.llmHost.appendChild(slot);
+
+    // Hide the original body while the translation is open (replace mode)
+    this.bodyEl.style.display = 'none';
+
+    this.translation = new ArticleTranslation({
+      container: slot,
+      articleId: this.articleId,
+      originalContent: this.article.htmlContent,
+      onShowOriginal: () => this.closeTranslation(),
+    });
+    void this.translation.start();
+  }
+
+  /** Restore the original article body and remove the translation panel. */
+  private closeTranslation(): void {
+    if (this.bodyEl) {
+      this.bodyEl.style.display = '';
+    }
+    this.translation?.destroy();
+    this.translation = null;
+    this.llmHost?.querySelector('.translation-slot')?.remove();
+  }
+
+  /** Tear down any open LLM panels (called when a new article renders). */
+  private teardownLlmPanels(): void {
+    this.summary?.destroy();
+    this.summary = null;
+    this.translation?.destroy();
+    this.translation = null;
+    this.llmHost = null;
+    this.bodyEl = null;
   }
 
   /**

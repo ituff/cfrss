@@ -63,8 +63,9 @@ export class ArticleSummary {
         await this.readStream(response, signal);
       } else {
         // Cached JSON response
-        const data = await response.json() as { result: string };
-        this.content = data.result;
+        // Cache-hit responses are { cached: true, content } — older docs said { result }
+        const data = await response.json() as { content?: string; result?: string };
+        this.content = data.content ?? data.result ?? '';
         this.state = 'done';
         this.render();
       }

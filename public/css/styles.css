@@ -1539,3 +1539,13 @@ button, a, [role="button"] {
   background: none;
   border: none;
 }
+
+/* LLM panels (summary / translation) inside the reader */
+.article-view-llm {
+  margin-bottom: 20px;
+}
+
+.article-view-llm .summary-slot,
+.article-view-llm .translation-slot {
+  margin-bottom: 16px;
+}

@@ -76,8 +76,9 @@ export class ArticleTranslation {
         await this.readStream(response, signal);
       } else {
         // Cached JSON response
-        const data = await response.json() as { result: string };
-        this.translatedContent = data.result;
+        // Cache-hit responses are { cached: true, content }
+        const data = await response.json() as { content?: string };
+        this.translatedContent = data.content ?? '';
         this.state = 'done';
         this.render();
       }
