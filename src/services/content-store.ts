@@ -6,6 +6,8 @@
 
 import { GitHubConfig, ArticleContent } from '../types';
 import { upstreamError } from '../utils/errors';
+import { getConfig } from './config-store';
+import { decrypt } from '../utils/crypto';
 
 /**
  * Data structure for storing an article to GitHub.
@@ -19,6 +21,23 @@ export interface ArticleStorageData {
   feedUrl: string;
   htmlContent: string;
   fetchedAt: string;
+}
+
+/**
+ * Load the GitHub storage config from D1, decrypting the PAT.
+ * Returns null when GitHub storage is not configured.
+ */
+export async function loadGitHubConfig(db: D1Database, encryptionKey: string): Promise<GitHubConfig | null> {
+  const [owner, name, tokenEncrypted, branch, contentPath] = await Promise.all([
+    getConfig(db, 'github_repo_owner'),
+    getConfig(db, 'github_repo_name'),
+    getConfig(db, 'github_token_encrypted'),
+    getConfig(db, 'github_branch'),
+    getConfig(db, 'github_content_path'),
+  ]);
+  if (!owner || !name || !tokenEncrypted) return null;
+  const token = await decrypt(tokenEncrypted, encryptionKey);
+  return { repoOwner: owner, repoName: name, token, branch: branch || 'main', contentPath: contentPath || 'articles' };
 }
 
 const MAX_RETRIES = 3;

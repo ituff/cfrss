@@ -6,6 +6,14 @@ routes = [
   { pattern = "rss.maowoo.top", custom_domain = true }
 ]
 
+# ===== 定时任务：每小时整点自动抓取订阅新文章（新文章以未读状态呈现） =====
+[triggers]
+crons = ["0 * * * *"]
+
+[vars]
+# 每次定时任务最多刷新的订阅数（免费版 10ms CPU 限制，超出部分按最旧优先在后续小时轮转）
+CRON_MAX_FEEDS = "10"
+
 [assets]
 directory = "./public"
 not_found_handling = "single-page-application"

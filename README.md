@@ -8,6 +8,7 @@
 
 - **Folo 风格四栏界面**：图标导航栏 / 订阅分组树（未读数、可折叠）/ 文章卡片预览列表（缩略图、无限滚动）/ 阅读面板（自适应宽度）
 - **订阅与分组管理**：OPML 导入导出、分类增删改、订阅增删改（标题 / RSS 地址）、移动分组
+- **每小时定时抓取**：Cron Triggers 整点自动刷新订阅，新文章以未读状态呈现；`CRON_MAX_FEEDS` 控制单次批次上限（默认 10），超出部分按最旧优先在后续小时轮转
 - **订阅源健康机制**：连续失败 5 次自动标记异常并跳过刷新，成功一次自动恢复
 - **LLM 智能辅助**：文章总结、翻译（OpenAI 兼容接口，SSE 流式）、每日摘要、网页朗读
 - **PWA 离线阅读**：Service Worker 缓存最新 25 篇文章，离线可读，联网自动更新
@@ -31,7 +32,7 @@
 ```bash
 npm install        # 安装依赖
 npm run dev        # 本地开发（wrangler dev）
-npm test           # 运行测试（404 个用例）
+npm test           # 运行测试（411 个用例）
 npm run deploy     # 构建前端并部署到 Cloudflare
 npx tsc --noEmit   # 类型检查
 ```
@@ -59,10 +60,11 @@ npx tsc --noEmit   # 类型检查
 
 ```
 src/
-├── index.ts          # Hono 入口：中间件 + 全部 API 路由
+├── index.ts          # Hono 入口：中间件 + 全部 API 路由 + scheduled 定时入口
+├── scheduled.ts      # 每小时 cron 处理器（最旧优先分批刷新，复用共享刷新管线）
 ├── middleware/       # auth（Bearer token）、cpu-monitor、errorHandler
 ├── handlers/         # 路由处理器（订阅/分类/文章/OPML/LLM/配置）
-├── services/         # 业务层（抓取/GitHub存储/LLM代理/每日摘要/订阅管理）
+├── services/         # 业务层（抓取/刷新管线/GitHub存储/LLM代理/每日摘要/订阅管理）
 ├── utils/            # crypto(AES-GCM)、errors、url-validator
 └── client/           # 前端 SPA（feed-tree / article-pane / main-view / LoginGate…）
 public/               # 静态资源（index.html / sw.js / styles.css）

@@ -27,16 +27,17 @@
 ## 3. 目录结构
 
 ```
-cfrss/
+（仓库根）
 ├── src/
-│   ├── index.ts              # Hono 入口：中间件（CORS → CPU监控 → Auth）+ 全部 API 路由
+│   ├── index.ts              # Hono 入口：中间件（CORS → CPU监控 → Auth）+ 全部 API 路由 + scheduled 定时入口
+│   ├── scheduled.ts          # 每小时 cron 处理器（最旧优先分批，复用 feed-refresh 共享管线）
 │   ├── types/index.ts        # 核心类型：Subscription, Article, LLMConfig, Env 等
 │   ├── middleware/           # auth（单用户 token）、cpu-monitor（8ms 阈值早退）、errorHandler
 │   ├── handlers/             # 路由处理器：articles, categories, config, github-config,
 │   │                         #   llm, llm-config, opml, subscriptions
 │   ├── services/             # 业务层：config-store(D1 KV), content-fetcher(RSS/Atom解析),
-│   │                         #   content-store(GitHub), daily-digest, llm-proxy(SSE),
-│   │                         #   llm-service, opml, subscription-manager
+│   │                         #   feed-refresh(共享刷新管线), content-store(GitHub),
+│   │                         #   daily-digest, llm-proxy(SSE), llm-service, opml, subscription-manager
 │   ├── utils/                # crypto(AES-GCM), errors(APIError+状态码映射), language, url-validator
 │   └── client/               # 前端 SPA：main.ts, router.ts, state.ts, gestures.ts,
 │                             #   components/(article/digest/llm/player/settings/subscription/布局),
@@ -44,9 +45,9 @@ cfrss/
 ├── public/                   # 静态资源：index.html, manifest.json, sw.js, css/
 ├── migrations/0001_initial_schema.sql  # D1 表：categories, subscriptions, articles,
 │                                      #   llm_configs, llm_assignments, config, daily_digests, llm_cache
-├── test/                     # 25 个测试文件（单元 + fast-check 属性测试）
+├── test/                     # 27 个测试文件（单元 + fast-check 属性测试）
 ├── .kiro/specs/cloudflare-rss-reader/  # 规格：requirements / design / tasks（含进度勾选）
-├── wrangler.toml             # Workers 配置：D1 绑定 DB、assets SPA fallback、run_worker_first=/api/*
+├── wrangler.toml             # Workers 配置：cron(0 * * * *)、CRON_MAX_FEEDS、D1 绑定 DB、assets SPA fallback、run_worker_first=/api/*
 └── vitest.config.ts          # workers pool 测试环境
 ```
 
@@ -54,7 +55,7 @@ cfrss/
 
 ```bash
 npm run dev      # wrangler dev 本地开发（miniflare，含本地 D1）
-npm test         # vitest run 全量测试（约 22s，402 个用例）
+npm test         # vitest run 全量测试（约 20s，411 个用例）
 npm run deploy   # wrangler deploy 部署到 Cloudflare
 npx tsc --noEmit # 类型检查（当前 0 错误）
 npx wrangler d1 migrations apply cfrss-db --local   # 应用 D1 迁移（本地）
@@ -80,8 +81,16 @@ npx wrangler d1 migrations apply cfrss-db --remote  # 应用 D1 迁移（线上�
 
 **验证状态**：
 - TypeScript 编译：`tsc --noEmit` 通过，0 错误
-- 测试：**25 个测试文件、402 个用例全部通过**（含 19 个 fast-check 属性测试，覆盖规格中的 Property 1–22）
+- 测试：**27 个测试文件、411 个用例全部通过**（含 19 个 fast-check 属性测试，覆盖规格中的 Property 1–22）
 - 本地 D1 状态存在（`.wrangler/state/`），说明已跑过本地迁移与开发调试
+
+### 2026-09-07 增量：每小时定时抓取（cron）✅
+
+- 新增 `[triggers] crons = ["0 * * * *"]`（`wrangler.toml`）+ `src/scheduled.ts`（`handleScheduled`），`index.ts` 改为 `{ fetch: app.fetch, scheduled: handleScheduled }` 导出
+- 手动刷新端点的抓取/健康计数/去重/GitHub 持久化逻辑抽取为共享服务 `src/services/feed-refresh.ts`（`refreshSubscriptionsAndStore`），`loadGitHubConfig` 迁至 `content-store.ts`，HTTP 端点与 cron 共用同一条管线
+- cron 行为：每次运行最多刷新 `CRON_MAX_FEEDS`（vars，默认 10）个订阅，按 `last_fetched_at` 最旧优先（NULL 最先）轮转；跳过 disabled 订阅；新文章入库 `is_read = 0`（未读）
+- 新增测试：`test/scheduled.test.ts`（4 用例）、`test/services/feed-refresh.test.ts`（3 用例，固化手动刷新端点契约）
+- 同日将仓库从 `cfrss/` 子目录提升至工作区根目录（git 历史保留），根目录遗留的原型实现归档至 `new-design/`（已 gitignore，不进版本库）
 
 ### Git 状态
 
@@ -108,6 +117,7 @@ npx wrangler d1 migrations apply cfrss-db --remote  # 应用 D1 迁移（线上�
 - **错误处理**：统一抛 `APIError`（`src/utils/errors.ts`），`app.onError` 捕获并映射 HTTP 状态码（400/404/408/409/502/503）
 - **CPU 限制**：免费版 10ms CPU，`cpu-monitor` 中间件在接近阈值时早退并返回截断标记。刷新接口（`POST /api/articles/refresh`）支持 `{ids, force}` 分批调用——前端 `refreshFeeds()` 自动按 8 个/批分批；feed 解析截断至 256KB、下载上限 5MB、只保留 24h 内文章；去重查询必须按 subscription_id 过滤（全表扫描会超 CPU，错误 1102）
 - **订阅源健康机制**：`subscriptions` 表有 `fail_count`/`disabled` 字段——连续失败 5 次自动标记异常并跳过刷新，成功一次即自动恢复；`PUT /api/subscriptions/:id/enable` 手动恢复；订阅列表中异常源带 ⚠ 标记
+- **定时刷新（cron）**：`scheduled.ts` 与手动刷新端点共用 `refreshSubscriptionsAndStore`——改刷新/入库逻辑只改这一处。免费版 10ms CPU 硬限制下单次批次由 `CRON_MAX_FEEDS` 控制（默认 10），按 `last_fetched_at` 最旧优先轮转；cron 与 HTTP 均无跨调用状态，依赖健康机制自愈
 - **静态资源**：`wrangler.toml` 的 `[assets]` 处理 SPA fallback（非 `/api/*` 未命中静态文件 → `index.html`），Worker 只处理 `/api/*`
 - **API Key 安全**：LLM/GitHub 的密钥先经 `src/utils/crypto.ts`（AES-GCM）加密再入 D1，永不回传明文
 - **LLM 缓存**：总结/翻译结果入 `llm_cache`（键：article_id + function），每日摘要在调用 LLM 前先查 `daily_digests`
@@ -125,6 +135,7 @@ npx wrangler d1 migrations apply cfrss-db --remote  # 应用 D1 迁移（线上�
 | 订阅/分类 | `services/subscription-manager.ts`, `utils/url-validator.ts` | `subscription-manager`, `url-validator` |
 | OPML | `services/opml.ts` | `opml`, `opml-import` |
 | 抓取 | `services/content-fetcher.ts` | `content-fetcher`, `refresh-feeds` |
+| 定时抓取（cron） | `scheduled.ts`, `services/feed-refresh.ts`（与手动刷新共享管线） | `scheduled.test.ts`, `services/feed-refresh.test.ts` |
 | 正文存储 | 刷新时 `storeArticle` 上传 GitHub（需 UA 头，否则 403）；详情接口 `getArticleContent` 回读 | `content-store` |
 | GitHub 存储 | `services/content-store.ts` | `content-store` |
 | LLM | `services/llm-service.ts`, `llm-proxy.ts`, `daily-digest.ts` | `llm-service`, `llm-proxy`, `daily-digest` |

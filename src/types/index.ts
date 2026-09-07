@@ -3,6 +3,8 @@ export interface Env {
   DB: D1Database;
   ENCRYPTION_KEY: string;
   AUTH_TOKEN: string;
+  /** Cron 批次上限：每次定时任务最多刷新的订阅数（字符串数字，可选，默认 10） */
+  CRON_MAX_FEEDS?: string;
 }
 
 // === Subscription Management ===

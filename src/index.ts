@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from './types';
+import { handleScheduled } from './scheduled';
 import { authMiddleware } from './middleware/auth';
 import { cpuMonitorMiddleware } from './middleware/cpu-monitor';
 import { errorHandler } from './middleware/errorHandler';
@@ -95,4 +96,8 @@ app.post('/api/config/github/test', handleTestGitHubConfig);
 //
 // Non-API routes that don't match a static file are automatically served index.html.
 
-export default app;
+// fetch: HTTP 路由（Hono app）；scheduled: 每小时定时刷新（见 src/scheduled.ts 与 wrangler.toml [triggers]）
+export default {
+  fetch: app.fetch,
+  scheduled: handleScheduled,
+};
