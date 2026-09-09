@@ -31,3 +31,6 @@ public/js/
 
 # Local archive of the discarded v1 prototype implementation
 new-design/
+
+# temp test files
+llm_*.txt
