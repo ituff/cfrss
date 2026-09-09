@@ -1,0 +1,32 @@
+data: {"content":""}
+
+data: {"content":"将一个"}
+
+data: {"content":"集成流"}
+
+data: {"content":"从一个"}
+
+data: {"content":" CPI 租户迁移"}
+
+data: {"content":"到另一个租户需要"}
+
+data: {"content":"三个服务以及三次"}
+
+data: {"content":"手动干预。操作人员"}
+
+data: {"content":"无需了解这些细节"}
+
+data: {"content":"，"}
+
+data: {"content":"他们只需简单地说"}
+
+data: {"content":"："}
+
+data: {"content":"把这个工件从这里移到"}
+
+data: {"content":"那里。"}
+
+data: {"content":""}
+
+data: [DONE]
+

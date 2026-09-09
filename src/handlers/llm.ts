@@ -16,6 +16,75 @@ import { getLanguage } from '../services/config-store';
 import { getDailyDigest, selectDigestArticles, generateDigest } from '../services/daily-digest';
 import { validationError, notFoundError } from '../utils/errors';
 
+import { getConfig } from '../services/config-store';
+import { getArticleContent } from '../services/content-store';
+
+/**
+ * Convert stored article HTML to plain text for LLM input:
+ * drop tags, decode common entities, collapse whitespace.
+ */
+function htmlToPlainText(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<\/(p|div|h[1-6]|li|tr|blockquote|section)>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Load the full article content from GitHub storage, falling back to the
+ * D1 summary when storage is unavailable. Returns plain text.
+ */
+async function loadArticleText(
+  db: Env['DB'],
+  encKey: string,
+  articleId: string,
+  fallbackSummary: string
+): Promise<string> {
+  const contentPath = await db
+    .prepare('SELECT content_path FROM articles WHERE id = ?')
+    .bind(articleId)
+    .first<{ content_path: string }>();
+
+  let html = '';
+  if (contentPath?.content_path) {
+    try {
+      const [owner, name, tokenEncrypted, branch, contentPathBase] = await Promise.all([
+        getConfig(db, 'github_repo_owner'),
+        getConfig(db, 'github_repo_name'),
+        getConfig(db, 'github_token_encrypted'),
+        getConfig(db, 'github_branch'),
+        getConfig(db, 'github_content_path'),
+      ]);
+      if (owner && name && tokenEncrypted) {
+        const { decrypt } = await import('../utils/crypto');
+        const token = await decrypt(tokenEncrypted, encKey);
+        const content = await getArticleContent(
+          { repoOwner: owner, repoName: name, token, branch: branch || 'main', contentPath: contentPathBase || 'articles' },
+          contentPath.content_path
+        );
+        html = content?.htmlContent ?? '';
+      }
+    } catch {
+      // Storage unavailable — fall back to the D1 summary below
+    }
+  }
+
+  const text = htmlToPlainText(html);
+  return text || htmlToPlainText(fallbackSummary) || fallbackSummary;
+}
+
 // --- Summarization Handler ---
 
 /**
@@ -86,10 +155,11 @@ export async function handleSummarizeArticle(c: Context<{ Bindings: Env }>) {
   // Decrypt the API key
   const apiKey = await decrypt(llmConfig.api_key_encrypted, encKey);
 
-  // Build content for summarization
-  const articleContent = article.summary
-    ? `Title: ${article.title}\n\n${article.summary}`
-    : `Title: ${article.title}`;
+  // Build content for summarization — prefer full text from GitHub storage
+  const fullText = await loadArticleText(db, encKey, articleId, article.summary ?? '');
+  const articleContent = `Title: ${article.title}
+
+${fullText}`;
 
   // Follow the language configured in Settings
   const uiLang = await getLanguage(db);
@@ -233,8 +303,8 @@ export async function handleTranslateArticle(c: Context<{ Bindings: Env }>) {
 
   // Build prompt
   const targetLangName = targetLanguage === 'zh' ? 'Chinese' : 'English';
-  const articleContent = article.summary || article.title;
-  const prompt = `Translate the following article into ${targetLangName}. Output only the ${targetLangName} translation.\n\n${articleContent}`;
+  const fullText = await loadArticleText(db, encKey, articleId, article.summary || article.title);
+  const prompt = `Translate the following article into ${targetLangName}. Output only the ${targetLangName} translation.\n\n${fullText}`;
 
   // Stream LLM response
   const stream = await streamLLMResponse({

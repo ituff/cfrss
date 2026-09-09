@@ -1,0 +1,168 @@
+data: {"content":""}
+
+data: {"content":"这篇文章"}
+
+data: {"content":"探讨了"}
+
+data: {"content":"SAP云集成"}
+
+data: {"content":"（C"}
+
+data: {"content":"PI）中“"}
+
+data: {"content":"交付”机制"}
+
+data: {"content":"的缺失及其带来的"}
+
+data: {"content":"复杂性。文章"}
+
+data: {"content":"指出，目前将"}
+
+data: {"content":"集成流从一个C"}
+
+data: {"content":"PI租户迁移"}
+
+data: {"content":"到另一个租户的过程"}
+
+data: {"content":"并不直观，反而"}
+
+data: {"content":"显得繁琐且技术"}
+
+data: {"content":"门槛高。\n\n"}
+
+data: {"content":"具体而言，这一"}
+
+data: {"content":"迁移过程需要调用"}
+
+data: {"content":"三个不同的服务，"}
+
+data: {"content":"并"}
+
+data: {"content":"涉及三次人工干预"}
+
+data: {"content":"操作。这种"}
+
+data: {"content":"复杂的流程要求操作人员"}
+
+data: {"content":"必须深入了解底层的技术"}
+
+data: {"content":"细节和操作"}
+
+data: {"content":"步骤，才能完成"}
+
+data: {"content":"简单的"}
+
+data: {"content":"工件转移任务。"}
+
+data: {"content":"作者"}
+
+data: {"content":"认为，这对于最终"}
+
+data: {"content":"用户或操作员来说"}
+
+data: {"content":"是不"}
+
+data: {"content":"合理的负担。\n\n"}
+
+data: {"content":"理想的“交付”"}
+
+data: {"content":"体验"}
+
+data: {"content":"应当是极简和"}
+
+data: {"content":"抽象化的。操作员"}
+
+data: {"content":"无需知晓背后的技术"}
+
+data: {"content":"实现逻辑或服务调用"}
+
+data: {"content":"顺序，他们只需要"}
+
+data: {"content":"表达"}
+
+data: {"content":"最核心的意图："}
+
+data: {"content":"即"}
+
+data: {"content":"指定某个特定的工件"}
+
+data: {"content":"（"}
+
+data: {"content":"artifact），并明确"}
+
+data: {"content":"其"}
+
+data: {"content":"源位置和目标位置"}
+
+data: {"content":"。换句话说"}
+
+data: {"content":"，系统应当隐藏"}
+
+data: {"content":"所有复杂的技术细节"}
+
+data: {"content":"，提供一个"}
+
+data: {"content":"统一的、声明式的"}
+
+data: {"content":"接口，让用户"}
+
+data: {"content":"只需关注“做什么"}
+
+data: {"content":"”，而不必关心"}
+
+data: {"content":"“怎么做"}
+
+data: {"content":"”。\n\n文章通过"}
+
+data: {"content":"对比现状与理想"}
+
+data: {"content":"状态，"}
+
+data: {"content":"批评了当前S"}
+
+data: {"content":"AP CPI"}
+
+data: {"content":"在用户体验和工作流"}
+
+data: {"content":"自动化"}
+
+data: {"content":"方面的不足。它"}
+
+data: {"content":"呼吁开发团队重新"}
+
+data: {"content":"思考“交付”"}
+
+data: {"content":"的定义"}
+
+data: {"content":"，从以技术"}
+
+data: {"content":"为中心转向以用户"}
+
+data: {"content":"为中心，"}
+
+data: {"content":"消除不必要的人工干预"}
+
+data: {"content":"和技术"}
+
+data: {"content":"知识壁垒，从而实现"}
+
+data: {"content":"真正无缝、高效的"}
+
+data: {"content":"跨租户集成流"}
+
+data: {"content":"管理。这不仅有助于"}
+
+data: {"content":"降低操作错误的风险"}
+
+data: {"content":"，还能"}
+
+data: {"content":"显著提升企业集成项目的"}
+
+data: {"content":"敏捷性和可维护"}
+
+data: {"content":"性。"}
+
+data: {"content":""}
+
+data: [DONE]
+
