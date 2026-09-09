@@ -208,7 +208,7 @@ export class ArticleSummary {
           <strong>${this.escapeHtml(t('summarize'))}</strong>
           ${this.state === 'streaming' ? '<span class="summary-streaming-indicator" aria-hidden="true">●</span>' : ''}
         </div>
-        <p class="summary-content" aria-live="polite">${this.escapeHtml(this.content).replace(/\n\n/g, '<br><br>')}</p>
+        <div class="summary-content" aria-live="polite">${this.content}</div>
       </div>
     `;
   }

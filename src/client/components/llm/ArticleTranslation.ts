@@ -272,14 +272,14 @@ export class ArticleTranslation {
           ${this.originalContent}
         </div>
         <div class="translation-panel translation-translated" aria-label="Translated content" aria-live="polite">
-          ${this.textToHtml(this.translatedContent)}
+          ${this.translatedContent}
         </div>
       `;
     } else {
       // Replace mode: only translation shown
       contentArea.innerHTML = `
         <div class="translation-translated" aria-live="polite">
-          ${this.textToHtml(this.translatedContent)}
+          ${this.translatedContent}
         </div>
       `;
     }
@@ -303,7 +303,7 @@ export class ArticleTranslation {
   private renderTranslatedText(): void {
     const translated = this.container.querySelector('.translation-translated');
     if (translated) {
-      translated.innerHTML = this.textToHtml(this.translatedContent);
+      translated.innerHTML = this.translatedContent;
     } else {
       // First chunk — do a full render to create the structure
       this.render();
@@ -352,15 +352,4 @@ export class ArticleTranslation {
     return div.innerHTML;
   }
 
-  /**
-   * Escape plain text and wrap paragraphs (blank-line separated) in <p> tags,
-   * single newlines become <br>.
-   */
-  private textToHtml(text: string): string {
-    const escaped = this.escapeHtml(text);
-    return escaped
-      .split(/\n\s*\n/)
-      .map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`)
-      .join('');
-  }
 }

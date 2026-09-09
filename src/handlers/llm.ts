@@ -46,7 +46,7 @@ function htmlToPlainText(html: string): string {
  * Load the full article content from GitHub storage, falling back to the
  * D1 summary when storage is unavailable. Returns plain text.
  */
-async function loadArticleText(
+async function loadArticleHtml(
   db: Env['DB'],
   encKey: string,
   articleId: string,
@@ -81,8 +81,7 @@ async function loadArticleText(
     }
   }
 
-  const text = htmlToPlainText(html);
-  return text || htmlToPlainText(fallbackSummary) || fallbackSummary;
+  return html || fallbackSummary;
 }
 
 // --- Summarization Handler ---
@@ -156,15 +155,16 @@ export async function handleSummarizeArticle(c: Context<{ Bindings: Env }>) {
   const apiKey = await decrypt(llmConfig.api_key_encrypted, encKey);
 
   // Build content for summarization — prefer full text from GitHub storage
-  const fullText = await loadArticleText(db, encKey, articleId, article.summary ?? '');
+  const articleHtml = await loadArticleHtml(db, encKey, articleId, article.summary ?? '');
+  const fullText = htmlToPlainText(articleHtml);
   const articleContent = `Title: ${article.title}
 
 ${fullText}`;
 
-  // Follow the language configured in Settings
+  // Follow the language configured in Settings; output HTML so the client renders it directly
   const uiLang = await getLanguage(db);
   const langName = uiLang === 'zh' ? 'Chinese' : 'English';
-  const prompt = `Summarize the following article in no more than 300 words. Write the summary in ${langName}:\n\n${articleContent}`;
+  const prompt = `Summarize the following article in no more than 300 words. Write the summary in ${langName}. Output the summary as simple HTML using only these tags: <p>, <ul>, <li>, <strong>, <h3>. No markdown, no other tags.\n\n${articleContent}`;
 
   // Stream LLM response
   const stream = await streamLLMResponse({
@@ -303,8 +303,8 @@ export async function handleTranslateArticle(c: Context<{ Bindings: Env }>) {
 
   // Build prompt
   const targetLangName = targetLanguage === 'zh' ? 'Chinese' : 'English';
-  const fullText = await loadArticleText(db, encKey, articleId, article.summary || article.title);
-  const prompt = `Translate the following article into ${targetLangName}. Output only the ${targetLangName} translation.\n\n${fullText}`;
+  const articleHtml = await loadArticleHtml(db, encKey, articleId, article.summary || article.title);
+  const prompt = `Translate the following HTML article into ${targetLangName}. The input is HTML — translate ONLY the text content and KEEP every HTML tag, attribute and structure exactly as in the source. Do not add or remove elements. Output only the translated HTML.\n\n${articleHtml}`;
 
   // Stream LLM response
   const stream = await streamLLMResponse({

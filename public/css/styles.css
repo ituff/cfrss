@@ -1601,3 +1601,27 @@ button, a, [role="button"] {
 .article-translation .translation-panel {
   margin-bottom: 12px;
 }
+
+/* Summary panel: rendered HTML typography */
+.article-summary .summary-content p {
+  margin: 0 0 0.8em;
+}
+
+.article-summary .summary-content ul {
+  padding-left: 1.4em;
+  margin: 0.4em 0 0.8em;
+}
+
+.article-summary .summary-content li {
+  margin-bottom: 0.4em;
+  line-height: 1.7;
+}
+
+.article-summary .summary-content strong {
+  color: var(--color-text);
+}
+
+.article-summary .summary-content h3 {
+  font-size: 15px;
+  margin: 0.8em 0 0.5em;
+}
