@@ -35,6 +35,7 @@ export interface Article {
   publishedAt: string;   // ISO 8601
   summary: string;
   contentUrl: string;    // GitHub storage path
+  sourceUrl: string;     // Link to the original article
   isRead: boolean;
   fetchedAt: string;
 }

@@ -82,6 +82,7 @@ export async function selectDigestArticles(db: D1Database, since: string): Promi
     publishedAt: row.published_at,
     summary: row.summary,
     contentUrl: row.content_path,
+    sourceUrl: row.source_url,
     isRead: row.is_read === 1,
     fetchedAt: row.fetched_at,
   }));
@@ -94,7 +95,7 @@ export async function selectDigestArticles(db: D1Database, since: string): Promi
  */
 function buildDigestPrompt(articles: Article[]): string {
   const articleList = articles
-    .map((a, i) => `${i + 1}. [${a.title}]${a.author ? ` by ${a.author}` : ''}\n   Summary: ${a.summary || 'No summary available'}`)
+    .map((a, i) => `${i + 1}. [${a.title}]${a.author ? ` by ${a.author}` : ''}\n   Summary: ${a.summary || 'No summary available'}\n   URL: ${a.sourceUrl || 'none'}`)
     .join('\n\n');
 
   return [
@@ -103,8 +104,8 @@ function buildDigestPrompt(articles: Article[]): string {
     'Requirements:',
     '1. Start with a 2-3 sentence overview of the main themes of the day (no heading for it).',
     '2. Group the articles into 2-5 themes, each theme as a second-level heading (## Theme).',
-    '3. One bullet per article, in this exact format: **Article Title** (Source) - one-sentence core takeaway, max 40 words.',
-    '4. Use only these Markdown constructs: second-level headings, bold, unordered lists. Do NOT use tables, horizontal rules, nested lists, or level-1 headings.',
+    '3. One bullet per article, in this exact format: **Article Title** (Source) - one-sentence core takeaway, max 40 words. End the bullet with the article link as a Markdown link: [阅读原文](URL) for Chinese articles or [Read more](URL) for English articles. Use the exact URL from the article list; skip the link if the URL is none.',
+    '4. Use only these Markdown constructs: second-level headings, bold, unordered lists, and inline links. Do NOT use tables, horizontal rules, nested lists, or level-1 headings.',
     '5. Write in the dominant language of the articles (Chinese articles -> Chinese digest; English articles -> English digest).',
     '6. Keep the whole digest under 600 words. Output only the digest, no extra commentary.',
     '',
