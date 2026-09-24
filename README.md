@@ -190,6 +190,18 @@ It is retried for a few days, then flagged as abnormal and skipped so it stops
 slowing down every refresh. The subscription list shows a warning marker, and one
 click re-enables it.
 
+## Documentation
+
+Everything sits under [`docs/`](docs/README.md) — start at the
+**[documentation index](docs/README.md)**. The three guides, each in English and
+Simplified Chinese:
+
+| Guide | English | 中文 |
+|---|---|---|
+| Deploy it by hand | [Manual deployment](docs/guides/manual-deployment.md) | [手动部署](docs/guides/manual-deployment.zh-CN.md) |
+| Wire up an AI provider | [Configure LLM](docs/guides/llm-configuration.md) | [配置 LLM](docs/guides/llm-configuration.zh-CN.md) |
+| Set up read-aloud (TTS) | [Configure read-aloud](docs/guides/read-aloud.md) | [配置朗读服务](docs/guides/read-aloud.zh-CN.md) |
+
 ## License
 
 [GPL-3.0](LICENSE).

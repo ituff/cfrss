@@ -1,5 +1,7 @@
 # Configure read-aloud
 
+> [Documentation index](../README.md) · **English** · [中文](read-aloud.zh-CN.md)
+
 CFRSS does not contain a text-to-speech engine. It talks to a **read-aloud
 service that you deploy yourself** — a small Worker that proxies Microsoft's
 "Read aloud" (Edge TTS) voices.

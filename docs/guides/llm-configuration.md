@@ -1,5 +1,7 @@
 # Configure LLM
 
+> [Documentation index](../README.md) · **English** · [中文](llm-configuration.zh-CN.md)
+
 Article summaries, full-text translation and the daily digest all call an
 **OpenAI-compatible chat-completions endpoint**. CFRSS does not ship a model —
 you bring your own provider, and the key stays yours.

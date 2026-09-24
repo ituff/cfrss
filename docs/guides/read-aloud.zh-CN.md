@@ -1,5 +1,7 @@
 # 配置朗读服务
 
+> [文档索引](../README.md) · [English](read-aloud.md) · **中文**
+
 CFRSS 本身不含文字转语音引擎。它对接的是**你自己部署的朗读服务** —— 一个把
 微软「大声朗读」（Edge TTS）转发出来的小 Worker。
 

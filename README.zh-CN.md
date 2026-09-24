@@ -175,6 +175,17 @@ npm run deploy                           # 先应用数据库迁移，再部署
 会被重试几天，然后标记为异常并跳过，不再拖慢每次刷新。订阅列表里会显示警告标记，
 点一下就能重新启用。
 
+## 文档
+
+全部放在 [`docs/`](docs/README.md) 下，入口是 **[文档索引](docs/README.md)**。
+三篇指南各有中英两版：
+
+| 指南 | 中文 | English |
+|---|---|---|
+| 手动部署 | [手动部署](docs/guides/manual-deployment.zh-CN.md) | [Manual deployment](docs/guides/manual-deployment.md) |
+| 接入 AI 服务商 | [配置 LLM](docs/guides/llm-configuration.zh-CN.md) | [Configure LLM](docs/guides/llm-configuration.md) |
+| 配置朗读（TTS） | [配置朗读服务](docs/guides/read-aloud.zh-CN.md) | [Configure read-aloud](docs/guides/read-aloud.md) |
+
 ## 许可
 
 [GPL-3.0](LICENSE)。

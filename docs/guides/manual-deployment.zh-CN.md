@@ -1,5 +1,7 @@
 # 手动部署
 
+> [文档索引](../README.md) · [English](manual-deployment.md) · **中文**
+
 手动部署 CFRSS 大约需要十分钟。
 
 **你需要：** 一个 Cloudflare 账号（免费版就够）、Node.js 18 或更高版本，以及 git。

@@ -1,5 +1,7 @@
 # Manual deployment
 
+> [Documentation index](../README.md) · **English** · [中文](manual-deployment.zh-CN.md)
+
 Deploying CFRSS by hand takes about ten minutes.
 
 **You need:** a Cloudflare account (the free plan is enough), Node.js 18 or

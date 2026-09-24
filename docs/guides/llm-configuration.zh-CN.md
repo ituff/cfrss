@@ -1,5 +1,7 @@
 # 配置 LLM
 
+> [文档索引](../README.md) · [English](llm-configuration.md) · **中文**
+
 文章总结、全文翻译和每日摘要都会调用一个 **OpenAI 兼容的 chat-completions
 接口**。CFRSS 本身不带模型 —— 服务商由你自己指定，密钥也始终在你自己手里。
 
