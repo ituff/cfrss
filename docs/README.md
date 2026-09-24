@@ -35,6 +35,11 @@ Each guide has an English and a Simplified Chinese version.
 Every guide carries the same header line: a link back to this index and a switch
 to the other language.
 
+> These guides are also published to the
+> **[project Wiki](https://github.com/ituff/cfrss/wiki)** for easier browsing.
+> The copies here are the source of truth — if the two ever disagree, this
+> directory wins.
+
 ---
 
 ## Related

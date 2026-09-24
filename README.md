@@ -193,8 +193,9 @@ click re-enables it.
 ## Documentation
 
 Everything sits under [`docs/`](docs/README.md) — start at the
-**[documentation index](docs/README.md)**. The three guides, each in English and
-Simplified Chinese:
+**[documentation index](docs/README.md)**, or browse the same guides on the
+**[Wiki](https://github.com/ituff/cfrss/wiki)**. The three guides, each in
+English and Simplified Chinese:
 
 | Guide | English | 中文 |
 |---|---|---|

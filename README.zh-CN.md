@@ -177,7 +177,8 @@ npm run deploy                           # 先应用数据库迁移，再部署
 
 ## 文档
 
-全部放在 [`docs/`](docs/README.md) 下，入口是 **[文档索引](docs/README.md)**。
+全部放在 [`docs/`](docs/README.md) 下，入口是 **[文档索引](docs/README.md)**；
+同样的指南也可以直接在 **[Wiki](https://github.com/ituff/cfrss/wiki)** 上翻阅。
 三篇指南各有中英两版：
 
 | 指南 | 中文 | English |
