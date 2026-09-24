@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.wrangler/
+
+# Environment variables
+.env
+.env.local
+.dev.vars
+
+# IDE
+.vscode/
+.idea/
+.kiro/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test coverage
+coverage/
+.dev-secrets.env
+
+# Client build artifact
+public/js/
+
+# Dev-period artifacts
+digest_gen.txt
+tasks/
+
+# Local tooling state (caches, working notes)
+.workbuddy-ai/
+
+# GITIGNORED ON PURPOSE — keep wrangler.toml visible so accidental changes show
+# up in `git status`, but make it impossible to commit the locally-injected
+# D1 database_id. The committed value must stay a placeholder; see
+# scripts/set-d1-id.sh and wrangler.toml.example.
+#
+# If you need to change anything ELSE in wrangler.toml:
+#   git add -p wrangler.toml     # stage everything except the database_id line

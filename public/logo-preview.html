@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CFRSS 品牌标识预览</title>
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<style>
+  :root {
+    --blue: #1a73e8;
+    --ink: #1a1a1a;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --surface: #ffffff;
+    --bg: #f6f7f9;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--ink);
+    padding: 40px 32px 64px; line-height: 1.6;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.2px; }
+  .lede { color: var(--muted); font-size: 14px; margin-top: 6px; margin-bottom: 32px; }
+  h2 {
+    font-size: 12px; font-weight: 650; text-transform: uppercase;
+    letter-spacing: 0.9px; color: var(--muted);
+    margin: 36px 0 14px;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 24px;
+  }
+  .row { display: flex; align-items: flex-end; gap: 32px; flex-wrap: wrap; }
+  .size { text-align: center; }
+  .size img { display: block; border-radius: 22%; margin: 0 auto 8px; }
+  .size span { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Nav rail reproduction */
+  .rail {
+    display: flex; flex-direction: column; align-items: center;
+    width: 72px; padding: 12px 0; border-radius: 12px;
+    background: #f8f9fa; border: 1px solid var(--line);
+  }
+  .rail .brand {
+    width: 36px; height: 36px; border-radius: 10px;
+    margin-bottom: 16px; display: flex; align-items: center; justify-content: center;
+  }
+  .rail .brand img { width: 36px; height: 36px; display: block; border-radius: 10px; }
+  .rail .item {
+    width: 52px; min-height: 48px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px;
+    border-radius: 8px; color: var(--muted); font-size: 10px;
+  }
+  .rail .item.active { color: var(--blue); background: #e8f0fe; }
+  .rail .item i { font-style: normal; font-size: 17px; }
+
+  /* Login screen reproduction */
+  .login {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 44px 24px; border-radius: 12px; background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .login img { width: 72px; height: 72px; border-radius: 18px; margin-bottom: 20px;
+    box-shadow: 0 6px 20px rgba(26,115,232,.22); }
+  .login .t { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+  .login .s { font-size: 14px; color: var(--muted); }
+
+  /* Browser tab reproduction */
+  .tab {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #dee1e6; border-radius: 8px 8px 0 0; padding: 8px 14px;
+    font-size: 12px; max-width: 220px;
+  }
+  .tab img { width: 16px; height: 16px; }
+  .tab .x { color: var(--muted); font-size: 13px; }
+
+  .dark { background: #202020; border-color: #333; }
+  .dark .size span, .dark h3 { color: #9aa0a6; }
+  h3 { font-size: 12px; font-weight: 600; margin-bottom: 18px; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+  .swatch { display: flex; align-items: center; gap: 10px; font-size: 12px;
+    color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dot { width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CFRSS 品牌标识</h1>
+  <p class="lede">
+    概念：由原点向外扩散的 <strong>RSS 信号波</strong>，三段同心弧线兼作字母 <strong>R</strong> 的负空间。
+  </p>
+
+  <h2>图标尺寸</h2>
+  <div class="card">
+    <div class="row">
+      <div class="size"><img src="/icons/icon-512x512.png" width="128" height="128" alt="512"><span>512</span></div>
+      <div class="size"><img src="/icons/icon-192x192.png" width="96" height="96" alt="192"><span>192</span></div>
+      <div class="size"><img src="/icons/icon-96x96.png" width="64" height="64" alt="96"><span>96</span></div>
+      <div class="size"><img src="/icons/icon-48x48.png" width="48" height="48" alt="48"><span>48</span></div>
+      <div class="size"><img src="/icons/icon-32x32.png" width="32" height="32" alt="32"><span>32</span></div>
+      <div class="size"><img src="/icons/icon-16x16.png" width="16" height="16" alt="16"><span>16</span></div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:32px">
+    <div>
+      <h2>导航栏（桌面端）</h2>
+      <div class="card">
+        <div class="rail" style="margin:0 auto">
+          <div class="brand"><img src="/icons/logo.svg" alt="CFRSS"></div>
+          <div class="item active"><i>📰</i>文章</div>
+          <div class="item"><i>☀️</i>日报</div>
+          <div class="item"><i>📡</i>订阅</div>
+          <div class="item"><i>⚙️</i>设置</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h2>浏览器标签页</h2>
+      <div class="card">
+        <div class="tab"><img src="/icons/icon-16x16.png" alt=""> CF RSS Reader <span class="x">×</span></div>
+        <p style="font-size:12px;color:var(--muted);margin-top:18px">
+          使用 <code>favicon.ico</code>（内嵌 16 / 32 / 48 三个尺寸）<br>
+          并为高分屏提供 32×32 PNG。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <h2>登录页</h2>
+  <div class="login">
+    <img src="/icons/logo.svg" alt="CFRSS">
+    <div class="t">CF RSS Reader</div>
+    <div class="s">Lightweight RSS reader on Cloudflare Workers</div>
+  </div>
+
+  <h2>暗色背景表现</h2>
+  <div class="card dark">
+    <div class="row">
+      <div class="size"><img src="/icons/icon-512x512.png" width="80" height="80" alt="512"><span>512</span></div>
+      <div class="size"><img src="/icons/icon-192x192.png" width="48" height="48" alt="192"><span>192</span></div>
+      <div class="size"><img src="/icons/icon-32x32.png" width="32" height="32" alt="32"><span>32</span></div>
+      <div class="size"><img src="/icons/icon-16x16.png" width="16" height="16" alt="16"><span>16</span></div>
+    </div>
+  </div>
+
+  <h2>配色</h2>
+  <div class="card">
+    <div class="row" style="align-items:center">
+      <div class="swatch"><span class="dot" style="background:#4C9BF0"></span>#4C9BF0</div>
+      <div class="swatch"><span class="dot" style="background:#1A73E8"></span>#1A73E8</div>
+      <div class="swatch"><span class="dot" style="background:#0B4FB4"></span>#0B4FB4</div>
+      <div class="swatch"><span class="dot" style="background:#FFFFFF;border-color:#ccc"></span>#FFFFFF</div>
+      <p style="font-size:12px;color:var(--muted);flex-basis:100%">
+        基准色 <code>#1A73E8</code> 取自应用既有的 <code>--color-accent</code>，全站视觉语言保持一致。
+      </p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

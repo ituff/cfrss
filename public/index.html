@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a73e8">
+  <meta name="description" content="Cloudflare RSS Reader - A lightweight RSS reader powered by Cloudflare Workers">
+  <link rel="icon" href="/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png">
+  <link rel="mask-icon" href="/icons/logo.svg" color="#1a73e8">
+  <link rel="manifest" href="/manifest.json">
+  <title>CF RSS Reader</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- Inline theme detection to prevent FOUC.
+       Acceptance order: theme_device (per-device cache written after the last
+       successful server sync) -> theme (shared/legacy key) -> OS preference.
+       Accepts light | dark | oled | eink; unknown values are skipped. -->
+  <script>
+    (function() {
+      var themes = ['light', 'dark', 'oled', 'eink'];
+      var chromeColors = { light: '#ffffff', dark: '#202020', oled: '#000000', eink: '#ffffff' };
+      var theme = null;
+      try { theme = localStorage.getItem('theme_device'); } catch (e) {}
+      if (themes.indexOf(theme) === -1) {
+        try { theme = localStorage.getItem('theme'); } catch (e) {}
+      }
+      if (themes.indexOf(theme) === -1) {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', chromeColors[theme]);
+    })();
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

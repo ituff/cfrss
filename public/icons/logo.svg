@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="CFRSS">
+  <title>CFRSS</title>
+  <defs>
+    <linearGradient id="cfrss-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4C9BF0"/>
+      <stop offset="0.55" stop-color="#1A73E8"/>
+      <stop offset="1" stop-color="#0B4FB4"/>
+    </linearGradient>
+    <linearGradient id="cfrss-mark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D9E8FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle tile -->
+  <rect width="128" height="128" rx="30" fill="url(#cfrss-bg)"/>
+  <!-- Top-left sheen, keeps the tile from reading flat -->
+  <ellipse cx="26" cy="10" rx="62" ry="40" fill="#FFFFFF" opacity="0.13"/>
+
+  <!-- Signal waves: broadcast arcs radiating from the origin -->
+  <g stroke="url(#cfrss-mark)" stroke-linecap="round" fill="none">
+    <path d="M 33 76 A 19 19 0 0 1 52 95" stroke-width="7.5"/>
+    <path d="M 32 58 A 37 37 0 0 1 70 96" stroke-width="9.5"/>
+    <path d="M 31 40 A 56 56 0 0 1 88 98" stroke-width="11.5"/>
+  </g>
+  <!-- Broadcast origin dot -->
+  <circle cx="33" cy="96" r="7.5" fill="#FFFFFF"/>
+</svg>

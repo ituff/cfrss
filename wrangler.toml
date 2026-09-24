@@ -1,0 +1,28 @@
+name = "cfrss"
+main = "src/index.ts"
+compatibility_date = "2024-12-30"
+
+# 自定义域名（本地部署配置，按需改成自己的域名；不需要可整段删除）
+routes = [
+  { pattern = "rss.example.com", custom_domain = true }
+]
+
+# ===== 定时任务：每小时整点自动抓取订阅新文章（新文章以未读状态呈现） =====
+[triggers]
+crons = ["0 * * * *"]
+
+[vars]
+# 每次定时任务最多刷新的订阅数（免费版 10ms CPU 限制，超出部分按最旧优先在后续小时轮转）
+CRON_MAX_FEEDS = "10"
+
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cfrss-db"
+# placeholdered on purpose — the real id is injected locally, see README
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

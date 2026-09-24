@@ -1,0 +1,43 @@
+{
+  "name": "cfrss",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker RSS Reader with Hono",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build:client": "esbuild src/client/main.ts --bundle --format=esm --target=es2020 --minify --outfile=public/js/main.js",
+    "predeploy": "npm run build:client",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy": "npm run db:migrate:remote && wrangler deploy",
+    "test": "vitest run"
+  },
+  "cloudflare": {
+    "bindings": {
+      "AUTH_TOKEN": {
+        "description": "The password you will sign in with. Pick something long and random — you can change it later from the settings page."
+      },
+      "ENCRYPTION_KEY": {
+        "description": "Encrypts stored API keys at rest. Generate one with `openssl rand -hex 32`. Keep it safe: changing it makes already-saved keys unreadable."
+      }
+    }
+  },
+  "dependencies": {
+    "hono": "^4.7.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.20.1",
+    "@cloudflare/workers-types": "^5.20260905.1",
+    "esbuild": "^0.28.2",
+    "fast-check": "^4.9.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.129.0"
+  },
+  "allowScripts": {
+    "workerd@1.20260730.1": true,
+    "workerd@1.20260903.1": true,
+    "esbuild@0.28.1": true,
+    "esbuild@0.28.2": true
+  }
+}

@@ -1,0 +1,24 @@
+# Copy this file to `.dev.vars` for local development:
+#
+#     cp .dev.vars.example .dev.vars
+#
+# In production these live as Worker secrets instead:
+#
+#     npx wrangler secret put AUTH_TOKEN
+#     npx wrangler secret put ENCRYPTION_KEY
+#
+# The Deploy to Cloudflare button reads this file to know which secrets to
+# prompt you for, so keep the names in sync with `wrangler.toml`.
+
+# The password you will sign in with. Also acts as the API bearer token.
+# Choose something long and random — you can change it later in the settings page.
+AUTH_TOKEN=change-me
+
+# Encrypts stored API keys (LLM / GitHub / TTS) at rest. Generate one with:
+#     openssl rand -hex 32
+# Keep it somewhere safe: changing it makes already-saved keys unreadable.
+ENCRYPTION_KEY=change-me
+
+# Local-development only. `scripts/set-d1-id.sh` injects the real database id
+# into `wrangler.toml` from here, so that it never ends up in a commit.
+D1_DATABASE_ID=
