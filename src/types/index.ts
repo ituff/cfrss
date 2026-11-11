@@ -5,6 +5,20 @@ export interface Env {
   AUTH_TOKEN: string;
   /** Cron 批次上限：每次定时任务最多刷新的订阅数（字符串数字，可选，默认 10） */
   CRON_MAX_FEEDS?: string;
+  /**
+   * Cloudflare's built-in version-metadata binding (`[version_metadata]` in
+   * wrangler.toml). Filled in by the platform on every deploy, so it reports
+   * the version actually serving traffic. Absent under `wrangler dev` and in
+   * tests.
+   */
+  CF_VERSION_METADATA?: {
+    /** UUID of the deployed Worker version. */
+    id: string;
+    /** Optional tag set at deploy time. */
+    tag?: string;
+    /** ISO 8601 upload time of that version. */
+    timestamp: string;
+  };
 }
 
 // === Subscription Management ===

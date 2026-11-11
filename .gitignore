@@ -43,3 +43,7 @@ tasks/
 #
 # If you need to change anything ELSE in wrangler.toml:
 #   git add -p wrangler.toml     # stage everything except the database_id line
+
+# The wiki clone is a separate git repository; keep it out of the main
+# tree so `git add -A` cannot pick it up as a nested gitlink.
+cfrss.wiki/

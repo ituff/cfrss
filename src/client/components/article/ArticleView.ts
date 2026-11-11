@@ -10,10 +10,22 @@
 
 import { navigate } from '../../router.js';
 import { t } from '../../services/i18n.js';
-import { getBookmarkState, addBookmark, removeBookmark } from '../../services/api.js';
+import {
+  getBookmarkState,
+  addBookmark,
+  removeBookmark,
+  getArticleDetail,
+  type ArticleDetail,
+} from '../../services/api.js';
 import { ArticleSummary } from '../llm/ArticleSummary.js';
 import { ArticleTranslation } from '../llm/ArticleTranslation.js';
-import { ReadAloudPlayer } from '../player/ReadAloudPlayer.js';
+import { openListenView, refreshListenHighlight } from '../player/ListenPlayer.js';
+import {
+  subscribeListen,
+  getListenSnapshot,
+  type ListenSnapshot,
+} from '../../services/listen-mode.js';
+import { iconVolume } from '../../icons.js';
 import { ArticleSwipeNavigator } from '../../gestures.js';
 import { getCurrentArticleId, setCurrentArticleId } from '../../state.js';
 
@@ -27,17 +39,6 @@ const BOOKMARK_ICON = `<svg class="action-btn__svg" width="14" height="14" viewB
   stroke-linejoin="round" aria-hidden="true">
   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
 </svg>`;
-
-export interface ArticleDetail {
-  id: string;
-  title: string;
-  author: string;
-  publishedAt: string;
-  htmlContent: string;
-  /** Feed-provided summary — used as the body fallback when full content is unavailable */
-  summary?: string;
-  sourceUrl: string;
-}
 
 export interface ArticleViewOptions {
   /** Container element to render into */
@@ -57,10 +58,11 @@ export class ArticleView {
   private boundaryMsgTimeout: ReturnType<typeof setTimeout> | null = null;
   private summary: ArticleSummary | null = null;
   private translation: ArticleTranslation | null = null;
-  private readAloudPlayer: ReadAloudPlayer | null = null;
   private llmHost: HTMLElement | null = null;
-  private readAloudHost: HTMLElement | null = null;
   private bodyEl: HTMLElement | null = null;
+  /** Toolbar read-aloud button — reflects whether this article is the one playing. */
+  private listenBtn: HTMLButtonElement | null = null;
+  private unsubscribeListen: (() => void) | null = null;
   /** Bookmark state for the current article (optimistic; synced with the API). */
   private bookmarked = false;
   private bookmarkBtn: HTMLButtonElement | null = null;
@@ -79,9 +81,13 @@ export class ArticleView {
     this.renderLoading();
 
     try {
-      this.article = await this.fetchArticle(this.articleId);
+      this.article = await getArticleDetail(this.articleId);
       this.renderArticle();
       this.setupSwipeNavigation();
+
+      // Keep the toolbar button in sync with the global session (it keeps
+      // playing across articles, so the active state can change under us).
+      this.unsubscribeListen = subscribeListen((snapshot) => this.syncListenButton(snapshot));
 
       // Mark as read
       setCurrentArticleId(this.articleId);
@@ -103,7 +109,11 @@ export class ArticleView {
    */
   destroy(): void {
     this.teardownLlmPanels();
-    this.teardownReadAloud();
+    // Read-aloud is owned by the global player and keeps running across
+    // navigation — only this view's subscription goes away.
+    this.unsubscribeListen?.();
+    this.unsubscribeListen = null;
+    this.listenBtn = null;
     this.swipeNavigator?.detach();
     this.swipeNavigator = null;
     if (this.boundaryMsgTimeout) {
@@ -117,19 +127,6 @@ export class ArticleView {
    */
   getArticleId(): string {
     return this.articleId;
-  }
-
-  /**
-   * Fetch article detail from the API.
-   */
-  private async fetchArticle(id: string): Promise<ArticleDetail> {
-    const response = await fetch(`/api/articles/${encodeURIComponent(id)}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch article: ${response.status}`);
-    }
-    // API wraps the payload: { article: {...} }
-    const data = await response.json() as { article: ArticleDetail };
-    return data.article;
   }
 
   /**
@@ -149,7 +146,6 @@ export class ArticleView {
   private renderArticle(): void {
     if (!this.article) return;
 
-    this.teardownReadAloud();
     this.teardownLlmPanels();
     this.container.innerHTML = '';
 
@@ -181,8 +177,9 @@ export class ArticleView {
       <button class="action-btn action-translate" type="button" aria-label="${t('translate')}">
         <span class="action-btn__icon" aria-hidden="true">🌐</span>${t('translate')}
       </button>
-      <button class="action-btn action-read-aloud" type="button" aria-label="${t('read_aloud')}">
-        <span class="action-btn__icon" aria-hidden="true">🔊</span>${t('read_aloud')}
+      <button class="action-btn action-read-aloud" type="button"
+              aria-label="${t('read_aloud')}" title="${t('read_aloud')}">
+        <span class="action-btn__icon" aria-hidden="true">${iconVolume(14)}</span>${t('read_aloud')}
       </button>
       <button class="action-btn action-bookmark" type="button"
               aria-label="${t('bookmark_add')}" title="${t('bookmark_add')}"
@@ -194,10 +191,6 @@ export class ArticleView {
     // LLM panels host (summary / translation render here)
     this.llmHost = document.createElement('div');
     this.llmHost.className = 'article-view-llm';
-
-    // Read-aloud player host (player controls render here when active)
-    this.readAloudHost = document.createElement('div');
-    this.readAloudHost.className = 'article-view-readaloud';
 
     // Article body (HTML content rendered directly; fall back to the feed
     // summary when full content storage is unavailable)
@@ -226,7 +219,6 @@ export class ArticleView {
     view.appendChild(header);
     view.appendChild(actions);
     view.appendChild(this.llmHost);
-    view.appendChild(this.readAloudHost);
     view.appendChild(body);
     view.appendChild(sourceLink);
     view.appendChild(boundaryMsg);
@@ -235,6 +227,10 @@ export class ArticleView {
 
     // Wire action button events
     this.bindActionButtons(actions);
+
+    // If this article is the one being read aloud, put the highlight back:
+    // the player has no tick while paused, so it cannot notice by itself.
+    refreshListenHighlight();
   }
 
   /**
@@ -285,14 +281,48 @@ export class ArticleView {
   private bindActionButtons(actions: HTMLElement): void {
     const summarizeBtn = actions.querySelector('.action-summarize');
     const translateBtn = actions.querySelector('.action-translate');
-    const readAloudBtn = actions.querySelector('.action-read-aloud');
+    const readAloudBtn = actions.querySelector<HTMLButtonElement>('.action-read-aloud');
 
     summarizeBtn?.addEventListener('click', () => this.toggleSummary());
     translateBtn?.addEventListener('click', () => this.toggleTranslation());
-    readAloudBtn?.addEventListener('click', () => this.toggleReadAloud());
+    readAloudBtn?.addEventListener('click', () => this.openListen());
+
+    this.listenBtn = readAloudBtn;
+    this.syncListenButton(getListenSnapshot());
 
     this.bookmarkBtn = actions.querySelector('.action-bookmark') as HTMLButtonElement | null;
     this.bookmarkBtn?.addEventListener('click', () => void this.toggleBookmark());
+  }
+
+  /**
+   * Start listening to this article, or bring the player back up if it is
+   * already the one being read. Stopping lives in the player itself, so this
+   * button never kills playback by accident.
+   */
+  private openListen(): void {
+    if (!this.article) return;
+
+    void openListenView({
+      id: this.articleId,
+      title: this.article.title,
+      author: this.article.author,
+      publishedAt: this.article.publishedAt,
+      subscriptionId: this.article.subscriptionId,
+      summary: this.article.summary,
+    });
+  }
+
+  /** Highlight the toolbar button while this article is the one playing. */
+  private syncListenButton(snapshot: ListenSnapshot): void {
+    const btn = this.listenBtn;
+    if (!btn) return;
+
+    const active = snapshot.item?.id === this.articleId;
+    const label = active ? t('listen_open') : t('read_aloud');
+
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
   }
 
   /**
@@ -406,47 +436,6 @@ export class ArticleView {
     this.llmHost?.querySelector('.translation-slot')?.remove();
   }
 
-  /**
-   * Toggle read-aloud playback for this article. First click creates the
-   * player controls and starts speaking; clicking again stops playback.
-   */
-  private toggleReadAloud(): void {
-    if (!this.readAloudHost || !this.bodyEl || !this.article) return;
-
-    if (this.readAloudPlayer) {
-      this.teardownReadAloud();
-      return;
-    }
-
-    this.readAloudPlayer = new ReadAloudPlayer({
-      container: this.readAloudHost,
-      articleBodyElement: this.bodyEl,
-      articleId: this.articleId,
-      htmlContent: this.article.htmlContent || this.article.summary || '',
-      onEnded: () => this.clearReadAloudButton(),
-    });
-    this.readAloudPlayer.init();
-    void this.readAloudPlayer.play();
-
-    // Reflect the active state on the toolbar button
-    this.container.querySelector('.action-read-aloud')?.classList.add('active');
-  }
-
-  /** Stop playback, remove the player controls and button highlight. */
-  private teardownReadAloud(): void {
-    this.readAloudPlayer?.destroy();
-    this.readAloudPlayer = null;
-    if (this.readAloudHost) {
-      this.readAloudHost.innerHTML = '';
-    }
-    this.clearReadAloudButton();
-  }
-
-  /** Remove the active highlight from the toolbar read-aloud button. */
-  private clearReadAloudButton(): void {
-    this.container.querySelector('.action-read-aloud')?.classList.remove('active');
-  }
-
   /** Tear down any open LLM panels (called when a new article renders). */
   private teardownLlmPanels(): void {
     this.summary?.destroy();
@@ -454,7 +443,6 @@ export class ArticleView {
     this.translation?.destroy();
     this.translation = null;
     this.llmHost = null;
-    this.readAloudHost = null;
     this.bodyEl = null;
   }
 

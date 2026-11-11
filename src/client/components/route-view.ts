@@ -20,6 +20,7 @@ import { LLMConfigPanel } from './settings/LLMConfigPanel.js';
 import { GitHubConfigPanel } from './settings/GitHubConfigPanel.js';
 import { TTSConfigPanel } from './settings/TTSConfigPanel.js';
 import { PasswordPanel } from './settings/PasswordPanel.js';
+import { VersionInfo } from './settings/VersionInfo.js';
 
 interface Mountable {
   destroy(): void;
@@ -31,6 +32,24 @@ interface Mountable {
  * swipe navigation knows the neighbor articles.
  */
 let lastArticleIds: string[] = [];
+
+/**
+ * Rebuild the filter query string for a detail URL.
+ *
+ * The detail view does not use it, but the read-aloud queue is scoped by the
+ * filter the user is browsing — dropping it here would silently widen the
+ * queue to every feed. Precedence matches `filterFromRoute` in main-view.ts.
+ */
+function filterQuery(query: Record<string, string>): string {
+  const params = new URLSearchParams();
+  if (query.subscription) {
+    params.set('subscription', query.subscription);
+  } else if (query.category) {
+    params.set('category', query.category);
+  }
+  const value = params.toString();
+  return value ? `?${value}` : '';
+}
 
 export class RouteView {
   private container: HTMLElement;
@@ -105,7 +124,7 @@ export class RouteView {
           container: view,
           feedId: this.route.query.subscription ?? null,
           categoryId: this.route.query.category ?? null,
-          onSelect: (id) => navigate(`/articles/${id}`),
+          onSelect: (id) => navigate(`/articles/${id}${filterQuery(this.route.query)}`),
         });
         await list.init();
         if (gen !== this.generation) {
@@ -186,6 +205,7 @@ export class RouteView {
       { icon: '🔊', titleKey: 'tts_config', descKey: 'settings_tts_desc', component: new TTSConfigPanel() },
       { icon: '🐙', titleKey: 'github_config', descKey: 'settings_github_desc', component: new GitHubConfigPanel() },
       { icon: '🔒', titleKey: 'password', descKey: 'settings_password_desc', component: new PasswordPanel() },
+      { icon: '🏷️', titleKey: 'version', descKey: 'settings_version_desc', component: new VersionInfo() },
     ];
 
     const wrap = document.createElement('div');

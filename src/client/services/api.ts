@@ -437,6 +437,36 @@ export async function getArticle(id: string): Promise<Article> {
   return data.article;
 }
 
+/**
+ * Full article detail, including the rendered body.
+ *
+ * `htmlContent` is only present when GitHub content storage is configured on
+ * the server — otherwise the field is silently absent and callers must fall
+ * back to `summary`.
+ */
+export interface ArticleDetail {
+  id: string;
+  subscriptionId?: string;
+  title: string;
+  author: string;
+  publishedAt: string;
+  htmlContent: string;
+  /** Feed-provided summary — the body fallback when full content is unavailable. */
+  summary?: string;
+  sourceUrl: string;
+}
+
+/**
+ * Get one article including its HTML body.
+ */
+export async function getArticleDetail(id: string): Promise<ArticleDetail> {
+  const data = await apiRequest<{ article: ArticleDetail }>(
+    'GET',
+    `/api/articles/${encodeURIComponent(id)}`
+  );
+  return data.article;
+}
+
 // === Bookmark API ===
 
 /**
@@ -782,4 +812,27 @@ export async function getDailyDigest(date?: string): Promise<DailyDigest | null>
 export async function generateDailyDigest(): Promise<DailyDigest> {
   const data = await apiRequest<{ digest: DailyDigest }>('POST', '/api/llm/digest/generate');
   return data.digest;
+}
+
+// === Server meta ===
+
+/** What the Worker reports about the version currently serving traffic. */
+export interface ServerVersion {
+  /** Short Worker version id, or null when the platform did not provide one. */
+  version: string | null;
+  /** Optional deploy tag. */
+  tag: string | null;
+  /** ISO 8601 upload time of the deployed version. */
+  deployedAt: string | null;
+}
+
+/**
+ * Read the deployed Worker version.
+ *
+ * Comes from the server rather than the bundle on purpose: a cached client can
+ * be older than the deployment, and this panel exists to answer "is the server
+ * up to date?".
+ */
+export async function getServerVersion(): Promise<ServerVersion> {
+  return apiRequest<ServerVersion>('GET', '/api/version');
 }

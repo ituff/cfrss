@@ -92,12 +92,36 @@ synthesis endpoint is protected by the same login as the rest of the app.
 
 ## How playback works
 
+Press **Read Aloud** on an article and two things appear: a **floating bar** at
+the bottom of the screen, and a full-screen **listen view** that enlarges the
+current paragraph and dims its neighbours. Closing the listen view does **not**
+stop playback — the bar stays, and audio keeps going while you browse other
+articles.
+
+The queue is scoped to the filter you are browsing (one feed, one category, or
+everything), ordered **newest first**, and advances to the next article
+automatically when one finishes. The order is fixed when the session starts, so
+it never reshuffles under you.
+
 CFRSS splits the article into paragraphs and synthesises them **one at a time**,
-prefetching the next while you listen. The paragraph currently being spoken is
-highlighted and scrolled into view, so you can follow along or jump back.
+prefetching the next while you listen. The paragraph being spoken is highlighted
+and scrolled into view — unless you scrolled recently yourself, in which case it
+leaves you alone.
 
 Text is capped at 5,000 characters per request — Edge TTS degrades on very long
-inputs, which is exactly why the article is split rather than sent whole.
+inputs. Paragraphs longer than that are split into smaller chunks in the
+browser, so one oversized paragraph can no longer abort the whole article.
+
+### Playback speed
+
+**0.75× / 1× / 1.25× / 1.5× / 1.75× / 2×**, cycled by the speed button on the
+bar or in the listen view.
+
+Speed is applied **in the browser** via `audio.playbackRate`, not by asking the
+service to re-synthesise. That makes switching instant, free (no extra synthesis
+calls) and pitch-preserving. The trade-off is that the setting lives in this
+browser only — it does not sync across devices, the same way the voice choice is
+per device.
 
 ## Troubleshooting
 
@@ -107,5 +131,5 @@ inputs, which is exactly why the article is split rather than sent whole.
 | Test returns 404 | The Service URL is wrong, or includes a path. It should be the bare origin. |
 | Test fails with a network error | The Worker can't reach the URL. Check it's public and spelled correctly. |
 | Test works, but nothing plays | The browser blocked autoplay. Click play once manually. |
-| Speech stops partway | A paragraph failed to synthesise. Press play again to resume from that paragraph. |
+| Speech stops partway | A paragraph failed to synthesise. Press play again to resume from where it stopped. |
 | Wrong language accent | Set the voice explicitly instead of `Auto detect`. |

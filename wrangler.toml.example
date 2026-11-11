@@ -28,6 +28,10 @@ crons = ["0 * * * *"]
 # 每次定时任务最多刷新的订阅数（免费版 10ms CPU 限制，超出部分按最旧优先在后续小时轮转）
 CRON_MAX_FEEDS = "10"
 
+# 版本信息：由平台在每次部署时填充，设置页据此显示线上版本与部署时间
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
 [assets]
 directory = "./public"
 not_found_handling = "single-page-application"

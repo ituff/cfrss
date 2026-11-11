@@ -510,90 +510,474 @@ button, a, [role="button"] {
 }
 
 /* ==============================
-   Read-Aloud Player
-   Requirements: 10.3, 10.4
+   Listen player — floating bar + reader-style view
+
+   Two surfaces over one session. The bar floats above the mobile tab bar
+   (56px) and clears the desktop icon rail (64px). Every colour comes from a
+   theme token: OLED and E-Ink define `--shadow-*: none`, so the 1px border is
+   what keeps the bar visible there, and E-Ink kills the entrance animation
+   globally.
    ============================== */
 
-.read-aloud-player {
-  display: flex;
-  align-items: center;
-  padding: 8px 0;
-  margin: 8px 0;
-  border-top: 1px solid var(--color-border);
+.listen-player[hidden],
+.listen-player__bar[hidden],
+.listen-player__view[hidden],
+.listen-player__queue[hidden],
+.listen-player__para[hidden] {
+  display: none !important;
 }
 
-.player-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.listen-player {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  /* Only the surfaces themselves capture clicks; the rest is click-through. */
+  pointer-events: none;
 }
 
-.player-btn {
+/* --- floating bar --- */
+
+.listen-player__bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: calc(100vw - 24px);
+  max-width: 560px;
+  padding: 6px 8px 6px 12px;
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: listen-bar-rise var(--motion-duration-normal) ease;
+}
+
+@keyframes listen-bar-rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listen-player__bar {
+    animation: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .listen-player__bar {
+    left: calc(64px + (100vw - 64px) / 2);
+    bottom: 20px;
+    width: min(560px, calc(100vw - 64px - 48px));
+  }
+}
+
+/* Shadows are `none` on OLED/E-Ink — lean on the border there. */
+[data-theme="oled"] .listen-player__bar,
+[data-theme="eink"] .listen-player__bar {
+  border-color: var(--color-border-strong);
+}
+
+.listen-player__bar-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background-color: var(--color-border);
+}
+
+.listen-player__bar-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background-color: var(--color-accent);
+}
+
+.listen-player__open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.listen-player__open:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.listen-player__title {
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listen-player__meta {
+  max-width: 100%;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- controls --- */
+
+.listen-player__btn {
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  font-size: 14px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
 }
 
-.player-btn:hover:not(:disabled) {
-  background-color: var(--color-bg-secondary);
-  border-color: var(--color-primary);
+.listen-player__btn:hover {
+  background-color: var(--color-surface-hover);
 }
 
-.player-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.listen-player__btn:focus-visible,
+.listen-player__open:focus-visible,
+.listen-player__queue-item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
-.player-icon {
-  font-size: 16px;
+.listen-player__btn--primary {
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
 }
 
-.player-loading {
-  font-size: 14px;
+.listen-player__btn--primary:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.listen-player__btn--lg {
+  min-width: 52px;
+  min-height: 52px;
+  border-radius: var(--radius-lg);
+}
+
+.listen-player__rate {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
-  margin-left: 8px;
-  animation: pulsate 1.2s ease-in-out infinite;
 }
 
-@keyframes pulsate {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+.listen-player__chev {
+  display: inline-flex;
 }
 
-/* Error state */
-.player-error {
+.listen-player__chev.is-up {
+  transform: rotate(-90deg);
+}
+
+.listen-player__chev.is-down {
+  transform: rotate(90deg);
+}
+
+/* --- full-screen reader view --- */
+
+.listen-player__view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  pointer-events: auto;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.listen-player__view:focus {
+  outline: none;
+}
+
+.listen-player__header {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-divider);
 }
 
-.player-error-msg {
-  font-size: 14px;
-  color: var(--color-error);
+.listen-player__heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.player-retry {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
+.listen-player__kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Paragraph highlighting during playback (requirement 10.4) */
+.listen-player__view-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listen-player__source {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listen-player__reader {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(16px, 3vh, 32px);
+  padding: clamp(20px, 5vh, 56px) clamp(20px, 6vw, 72px);
+  overflow-y: auto;
+}
+
+.listen-player__para {
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  font-size: clamp(17px, 2.2vw, 23px);
+  line-height: 1.75;
+  color: var(--color-text-primary);
+}
+
+.listen-player__para--prev,
+.listen-player__para--next {
+  font-size: clamp(14px, 1.7vw, 17px);
+  color: var(--color-text-muted);
+  max-height: 22vh;
+  overflow: hidden;
+}
+
+/* Border + weight carry the "current" state, so it survives E-Ink's
+   monochrome accent and any colour blindness. */
+.listen-player__para--current {
+  font-weight: 600;
+  padding-left: 16px;
+  border-left: 3px solid var(--color-accent);
+}
+
+.listen-player__scrub {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  margin: 0 clamp(16px, 5vw, 56px);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.listen-player__scrub:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.listen-player__scrub-track {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--color-surface-active);
+  overflow: hidden;
+}
+
+.listen-player__scrub-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background-color: var(--color-accent);
+}
+
+.listen-player__counter {
+  flex: none;
+  padding: 0 clamp(16px, 5vw, 56px) 4px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.listen-player__controls {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 4px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+}
+
+/* --- queue --- */
+
+.listen-player__queue {
+  flex: none;
+  max-height: 45vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--color-divider);
+  background-color: var(--color-surface);
+}
+
+.listen-player__queue-hint {
+  margin: 0;
+  padding: 10px 16px 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.listen-player__queue-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.listen-player__queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: none;
+  border-top: 1px solid var(--color-divider);
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.listen-player__queue-item:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.listen-player__queue-item[aria-current="true"] {
+  background-color: var(--color-surface-active);
+}
+
+.listen-player__queue-index {
+  flex: none;
+  width: 20px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.listen-player__queue-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.listen-player__queue-title {
+  font-size: 13px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.listen-player__queue-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.listen-player__badge {
+  padding: 0 6px;
+  border-radius: 999px;
+  background-color: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+}
+
+.listen-player__badge.is-current {
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* One polite live region for article changes and errors. Announcing every
+   paragraph would make the reader unusable with a screen reader. */
+.listen-player__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Keep the last lines of the article reachable behind the floating bar. */
+body.listen-active .main-view__reader,
+body.listen-active .layout-mobile .pane-main {
+  padding-bottom: 96px;
+}
+
+/* Paragraph highlighting during playback. */
 .read-aloud-active-paragraph {
   background-color: var(--color-accent-soft);
-  border-left: 3px solid var(--color-primary);
+  border-left: 3px solid var(--color-accent);
   padding-left: 12px;
-  border-radius: 2px;
-  transition: background-color 0.3s ease, border-left-color 0.3s ease;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--motion-duration-normal) ease;
+}
+
+/* The toolbar read-aloud button carries an SVG now, not the 🔊 glyph. */
+.action-read-aloud .action-btn__icon {
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Login Gate */
@@ -2029,6 +2413,46 @@ button, a, [role="button"] {
 .settings-section .github-config-panel__title,
 .settings-section .llm-config-panel__title {
   display: none;
+}
+
+/* Deployed version — a read-only key/value pair, no controls */
+.version-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.version-info__row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.version-info__key {
+  flex: none;
+  min-width: 64px;
+  color: var(--color-text-secondary);
+}
+
+.version-info__value {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+.version-info__value--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+}
+
+.version-info__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
 }
 
 /* Form controls inside settings */

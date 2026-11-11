@@ -14,7 +14,7 @@
 // deletes every cache not in VALID_CACHES — so the stale offline copy goes away.
 // It is NOT what makes a new deploy visible, though: network-first already
 // refetches the shell on every online load.
-const APP_CACHE = 'rss-app-v13';
+const APP_CACHE = 'rss-app-v14';
 const ARTICLES_CACHE = 'rss-articles-v1';
 const MAX_CACHED_ARTICLES = 25;
 

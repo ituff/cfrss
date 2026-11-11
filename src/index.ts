@@ -7,6 +7,7 @@ import { cpuMonitorMiddleware } from './middleware/cpu-monitor';
 import { deviceMiddleware } from './middleware/device';
 import { errorHandler } from './middleware/errorHandler';
 import { handleGetTheme, handleSetTheme, handleGetLanguage, handleSetLanguage } from './handlers/config';
+import { handleGetVersion } from './handlers/version';
 import { handleChangePassword, handleResetPassword, handleGetPasswordStatus } from './handlers/auth';
 import { handleListCategories, handleCreateCategory, handleRenameCategory, handleDeleteCategory } from './handlers/categories';
 import {
@@ -58,6 +59,9 @@ app.use('*', cpuMonitorMiddleware());
 app.use('*', authMiddleware());
 // Resolve X-Device-Id into c.get('deviceId') for per-device settings
 app.use('*', deviceMiddleware());
+
+// --- Meta ---
+app.get('/api/version', handleGetVersion);
 
 // --- Subscription Management ---
 app.get('/api/subscriptions', handleListSubscriptions);

@@ -6,5 +6,10 @@ declare namespace Cloudflare {
     DB: D1Database;
     ENCRYPTION_KEY: string;
     AUTH_TOKEN: string;
+    CF_VERSION_METADATA?: {
+      id: string;
+      tag?: string;
+      timestamp: string;
+    };
   }
 }

@@ -1,109 +1,259 @@
 /**
  * TTS utility functions — pure logic extracted for testability.
- * These functions work with text/HTML content without requiring DOM APIs
- * in the test environment.
  *
- * Requirements: 10.4 (paragraph boundary detection)
+ * Two responsibilities:
+ *   1. Deciding what the "paragraphs" of an article are. `collectLeafBlocks`
+ *      is the single source of truth: the same walk feeds both the speech
+ *      segmentation and the on-page highlight mapping, so an index can never
+ *      drift between the two.
+ *   2. Turning paragraphs into speech-sized chunks. The synthesis endpoint
+ *      rejects anything over 5,000 characters, and one long <p> used to abort
+ *      the whole article — `splitForSpeech` keeps every request small.
+ *
+ * Nothing here touches `document` except `extractBlocksFromHtml`, and the walk
+ * itself only relies on `tagName` / `children` / `textContent`, so it runs
+ * against plain objects in the DOM-less Workers test pool.
  */
 
-/**
- * Block-level HTML tags that serve as paragraph boundaries.
- * Used to split article content into discrete speech segments.
- */
-const BLOCK_TAGS = [
-  'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'li', 'blockquote', 'pre', 'section', 'article',
-  'header', 'footer', 'figcaption', 'td', 'th',
-];
+/** The structural subset of `Element` the paragraph walk needs. */
+export interface BlockLike {
+  tagName: string;
+  children: ArrayLike<BlockLike>;
+  textContent: string | null;
+}
 
 /**
- * Extract paragraphs from HTML content using regex-based parsing.
- * This is a pure function that doesn't rely on DOM APIs, making it
- * testable in non-browser environments (e.g., Cloudflare Workers tests).
- *
- * Strategy: recursively find block-level elements. If a block element contains
- * nested block elements, recurse into them. Otherwise, extract the text content
- * of the leaf-level block element.
+ * Block-level tags that act as paragraph boundaries.
+ * `HTMLElement.tagName` is upper-case for HTML documents.
  */
-export function extractParagraphsFromHTML(html: string): string[] {
+export const BLOCK_TAGS: ReadonlySet<string> = new Set([
+  'P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+  'LI', 'BLOCKQUOTE', 'PRE', 'SECTION', 'ARTICLE',
+  'HEADER', 'FOOTER', 'FIGCAPTION', 'TD', 'TH',
+]);
+
+/** Whether this node is a paragraph boundary candidate. */
+export function isBlockNode(node: BlockLike): boolean {
+  return BLOCK_TAGS.has((node.tagName || '').toUpperCase());
+}
+
+/** Whether the node contains a block-level descendant (i.e. is a container). */
+export function hasBlockDescendant(node: BlockLike): boolean {
+  for (const child of Array.from(node.children)) {
+    if (isBlockNode(child) || hasBlockDescendant(child)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Collect the leaf block elements of a subtree, in document order.
+ *
+ * A block containing another block is a container and is recursed into; a
+ * block with no block descendants is a leaf and becomes one paragraph.
+ * Non-block nodes are transparent and recursed into.
+ *
+ * `HTMLElement` satisfies `BlockLike`, so passing an article body returns
+ * `HTMLElement[]` — the exact nodes to highlight.
+ */
+export function collectLeafBlocks<T extends BlockLike>(root: T): T[] {
+  const out: BlockLike[] = [];
+
+  const walk = (node: BlockLike): void => {
+    if (isBlockNode(node)) {
+      if (hasBlockDescendant(node)) {
+        for (const child of Array.from(node.children)) walk(child);
+      } else {
+        const text = node.textContent?.trim();
+        if (text) out.push(node);
+      }
+      return;
+    }
+    for (const child of Array.from(node.children)) walk(child);
+  };
+
+  walk(root);
+  // Safe: every entry came from `root`'s own subtree.
+  return out as T[];
+}
+
+/** Text of each leaf block, trimmed and empty blocks dropped. */
+export function extractBlockTexts(root: BlockLike): string[] {
+  return collectLeafBlocks(root).map((block) => block.textContent?.trim() ?? '');
+}
+
+/**
+ * Parse an HTML string into paragraph texts (DOM adapter for
+ * `extractBlockTexts`). Falls back to the whole text when the markup has no
+ * block elements at all.
+ */
+export function extractBlocksFromHtml(html: string): string[] {
   if (!html || !html.trim()) {
     return [];
   }
 
-  const paragraphs: string[] = [];
-  extractFromFragment(html, paragraphs);
+  const container = document.createElement('div');
+  container.innerHTML = html;
 
-  // Fallback: if no block elements found, treat entire content as one paragraph
-  if (paragraphs.length === 0) {
-    const fullText = stripHtmlTags(html).trim();
-    if (fullText) {
-      paragraphs.push(fullText);
-    }
+  const blocks = extractBlockTexts(container).filter((text) => text.length > 0);
+  if (blocks.length > 0) {
+    return blocks;
   }
 
-  return paragraphs;
+  const fallback = container.textContent?.trim();
+  return fallback ? [fallback] : [];
 }
 
 /**
- * Recursively extract text from block elements.
- * If a block element contains child block elements, recurse into those.
- * Otherwise, extract the text content of the block element itself.
+ * Upper bound for one synthesis request, in characters. Deliberately below
+ * the server's 5,000-char cap: Edge TTS quality degrades on very long inputs
+ * long before it refuses them.
  */
-function extractFromFragment(html: string, paragraphs: string[]): void {
-  // Match any block-level opening tag and find its content
-  const blockTagsPattern = BLOCK_TAGS.join('|');
-  const blockOpenRegex = new RegExp(
-    `<(${blockTagsPattern})(\\s[^>]*)?>([\\s\\S]*?)<\\/\\1>`,
-    'gi'
-  );
+export const SPEECH_CHUNK_MAX = 1800;
 
-  let match: RegExpExecArray | null;
-  let foundBlock = false;
+/** One synthesis request: a slice of a paragraph. */
+export interface SpeechSegment {
+  /** Text sent to the synthesis endpoint. */
+  text: string;
+  /** Index into the article's paragraphs — drives highlighting and the reader view. */
+  blockIndex: number;
+  /** Index of this slice within its paragraph. */
+  chunkIndex: number;
+  /** Number of slices the paragraph was split into (1 when it fits). */
+  chunkCount: number;
+}
 
-  while ((match = blockOpenRegex.exec(html)) !== null) {
-    foundBlock = true;
-    const innerContent = match[3];
+/** Characters that end a sentence outright (CJK needs no following space). */
+const HARD_STOPS = '。！？；\n';
 
-    // Check if the inner content contains nested block elements
-    const hasNestedBlocks = new RegExp(
-      `<(${blockTagsPattern})(\\s[^>]*)?>`,
-      'i'
-    ).test(innerContent);
+/** Latin terminators only end a sentence when followed by whitespace or EOF. */
+const LATIN_STOPS = '.!?;';
 
-    if (hasNestedBlocks) {
-      // Recurse into nested blocks
-      extractFromFragment(innerContent, paragraphs);
-    } else {
-      // Leaf block — extract text
-      const text = stripHtmlTags(innerContent).trim();
-      if (text) {
-        paragraphs.push(text);
+/** Closing punctuation/space that belongs to the sentence it follows. */
+const TRAILING = /[\s”"’'）)】」』]/;
+
+/**
+ * Split text into sentences, keeping every character. CJK terminators cut
+ * immediately; a Latin `.`/`!`/`?`/`;` only cuts when followed by whitespace
+ * or the end of the string, so `3.14` and `v1.2.3` stay intact.
+ */
+function splitSentences(text: string): string[] {
+  const sentences: string[] = [];
+  let start = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    let cut = HARD_STOPS.includes(ch);
+
+    if (!cut && LATIN_STOPS.includes(ch)) {
+      const next = text[i + 1];
+      cut = next === undefined || /\s/.test(next);
+    }
+
+    if (!cut) continue;
+
+    let end = i + 1;
+    while (end < text.length && TRAILING.test(text[end])) end++;
+
+    sentences.push(text.slice(start, end));
+    start = end;
+    i = end - 1;
+  }
+
+  if (start < text.length) {
+    sentences.push(text.slice(start));
+  }
+
+  return sentences;
+}
+
+/**
+ * Cut an over-long sentence into pieces of at most `max` characters,
+ * preferring to break at the last space or comma in the final 20 %.
+ */
+function hardSplit(text: string, max: number): string[] {
+  const chunks: string[] = [];
+  let rest = text;
+
+  while (rest.length > max) {
+    const windowStart = max - Math.floor(max * 0.2);
+    let cut = max;
+
+    for (let i = max - 1; i >= windowStart; i--) {
+      const ch = rest[i];
+      if (ch === ' ' || ch === ',' || ch === '，' || ch === '、') {
+        cut = i + 1;
+        break;
       }
     }
+
+    chunks.push(rest.slice(0, cut));
+    rest = rest.slice(cut);
   }
 
-  // If no block elements at this level but there's text, it's handled by the caller's fallback
-  if (!foundBlock) {
-    const text = stripHtmlTags(html).trim();
-    if (text) {
-      paragraphs.push(text);
+  if (rest) chunks.push(rest);
+  return chunks;
+}
+
+/**
+ * Split one paragraph into synthesis-sized chunks.
+ *
+ * Guarantees: every chunk is at most `max` characters, and
+ * `chunks.join('') === text` — no character is dropped or duplicated, so the
+ * reader never silently loses a word. Whitespace-only input yields `[]`.
+ */
+export function splitForSpeech(text: string, max: number = SPEECH_CHUNK_MAX): string[] {
+  if (!text || !text.trim()) {
+    return [];
+  }
+  if (text.length <= max) {
+    return [text];
+  }
+
+  const chunks: string[] = [];
+  let buffer = '';
+
+  for (const sentence of splitSentences(text)) {
+    if (sentence.length > max) {
+      if (buffer) {
+        chunks.push(buffer);
+        buffer = '';
+      }
+      chunks.push(...hardSplit(sentence, max));
+      continue;
+    }
+
+    if (buffer.length + sentence.length > max) {
+      chunks.push(buffer);
+      buffer = sentence;
+    } else {
+      buffer += sentence;
     }
   }
+
+  if (buffer) chunks.push(buffer);
+  return chunks;
 }
 
 /**
- * Strip all HTML tags from a string, leaving only text content.
+ * Flatten paragraphs into speech segments, remembering which paragraph each
+ * segment came from so highlighting stays correct across splits.
  */
-function stripHtmlTags(html: string): string {
-  return html.replace(/<[^>]*>/g, '');
-}
+export function buildSegments(
+  blocks: readonly string[],
+  max: number = SPEECH_CHUNK_MAX
+): SpeechSegment[] {
+  const segments: SpeechSegment[] = [];
 
-/**
- * Get the number of paragraphs in HTML content.
- * Useful for determining how many audio segments to expect.
- */
-export function getParagraphCount(html: string): number {
-  return extractParagraphsFromHTML(html).length;
+  blocks.forEach((block, blockIndex) => {
+    const chunks = splitForSpeech(block, max);
+    chunks.forEach((text, chunkIndex) => {
+      segments.push({ text, blockIndex, chunkIndex, chunkCount: chunks.length });
+    });
+  });
+
+  return segments;
 }
 
 /**

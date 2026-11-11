@@ -7,6 +7,7 @@
 import { initRouter } from './router.js';
 import { AppShell } from './components/AppShell.js';
 import { LoginGate, getStoredToken, clearStoredToken, verifyToken } from './components/LoginGate.js';
+import { installListenPlayer } from './components/player/ListenPlayer.js';
 import { installFetchAuth } from './services/api.js';
 import { initPWA } from './services/pwa.js';
 import { initTheme } from './services/theme.js';
@@ -29,6 +30,11 @@ async function startApp(appEl: HTMLElement): Promise<void> {
 
   const shell = new AppShell(appEl);
   shell.init();
+
+  // The floating read-aloud player lives on <body>, outside #app, so that
+  // article navigation (which rebuilds the app shell's content) cannot
+  // destroy it. Idempotent, and only mounted once the user is signed in.
+  installListenPlayer();
 
   // Ensure default hash route is set
   if (!window.location.hash || window.location.hash === '') {

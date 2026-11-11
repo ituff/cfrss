@@ -49,9 +49,9 @@ full text of every article is archived in a GitHub repository you control.
 - **🌐 Full-text translation** — 10 target languages, and three ways to read the
   result: line-by-line alongside the original, side by side, or translation
   only. The original markup is preserved, so headings and lists survive.
-- **🔊 Read-aloud** — paragraph-by-paragraph speech with the current paragraph
-  highlighted as it goes, 19 curated neural voices, or automatic language
-  detection per paragraph.
+- **🔊 Read-aloud** — a floating player that keeps reading while you browse,
+  auto-advancing to the next article, with 0.75×–2× speed and 19 curated neural
+  voices (or automatic language detection per paragraph).
 - **☀️ Daily digest** — a once-a-day roundup built from everything unread in the
   last 24 hours, with links back to each source.
 - **🔖 Bookmarks** — save now, read later. Bookmarks follow you across devices.

@@ -115,3 +115,34 @@ export const iconAlert = (size?: number): string =>
       '<path d="M12 9v4"/><path d="M12 17h.01"/>',
     size,
   );
+
+// === Read-aloud transport ===
+//
+// Outlined rather than filled, to match the stroke-only weight of every other
+// icon in this file. The previous player used the `▶` / `❚❚` / `■` glyphs,
+// which render at wildly different sizes and weights per platform.
+
+/** Right-pointing triangle — start or resume playback. */
+export const iconPlay = (size?: number): string =>
+  svg('<path d="M8 5v14l11-7Z"/>', size);
+
+/** Two bars — pause playback. */
+export const iconPause = (size?: number): string =>
+  svg('<path d="M9 5v14"/><path d="M15 5v14"/>', size);
+
+/** Bar + left triangle — previous article. */
+export const iconSkipBack = (size?: number): string =>
+  svg('<path d="M19 20 9 12l10-8Z"/><path d="M5 5v14"/>', size);
+
+/** Bar + right triangle — next article. */
+export const iconSkipForward = (size?: number): string =>
+  svg('<path d="M5 4l10 8-10 8Z"/><path d="M19 5v14"/>', size);
+
+/** Speaker with sound waves — the "read aloud" toolbar action. */
+export const iconVolume = (size?: number): string =>
+  svg(
+    '<path d="M11 5 6 9H2v6h4l5 4Z"/>' +
+      '<path d="M15.5 8.5a5 5 0 0 1 0 7"/>' +
+      '<path d="M18.5 5.5a9 9 0 0 1 0 13"/>',
+    size,
+  );
