@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      routine-updates:
+        applies-to: version-updates
+        update-types:
+          - "patch"
+          - "minor"
+    # @cloudflare/vitest-pool-workers only accepts vitest ^4.1.0. A major
+    # vitest bump makes `npm ci` fail with ERESOLVE, so major upgrades must be
+    # evaluated (and the test pool migrated) manually rather than by a bot.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
