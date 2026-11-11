@@ -26,13 +26,13 @@
     "hono": "^4.13.17"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.20.1",
-    "@cloudflare/workers-types": "^5.20260905.1",
+    "@cloudflare/vitest-pool-workers": "^0.23.0",
+    "@cloudflare/workers-types": "^5.20261108.1",
     "esbuild": "^0.28.2",
-    "fast-check": "^4.9.0",
+    "fast-check": "^4.10.2",
     "typescript": "^5.7.0",
     "vitest": "^4.1.12",
-    "wrangler": "^4.129.0"
+    "wrangler": "^4.158.0"
   },
   "overrides": {
     "undici": "7.30.1",
