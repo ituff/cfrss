@@ -86,6 +86,17 @@ are remembered for next time.
 | --- | --- |
 | ![Article summary](docs/screenshots/desktop-summary.png) | ![Article translation](docs/screenshots/desktop-translation.png) |
 
+### Read-aloud
+
+Press **Read Aloud** and a floating bar appears at the bottom of the screen.
+Expand it for a full-screen listen view that enlarges the paragraph being read
+and fades the rest. Closing that view does **not** stop playback — the bar stays
+while you browse other articles, and the queue moves on to the next one by
+itself. Speed (0.75×–2×) is applied in the browser, so switching is instant and
+costs no extra synthesis.
+
+![Floating player and full-screen listen view](docs/screenshots/read-aloud-en.png)
+
 ### Daily digest
 
 A single page that answers "what happened while I was away", generated from the
