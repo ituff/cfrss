@@ -7,6 +7,7 @@
  */
 
 import { validationError } from '../utils/errors';
+import { decodeHtmlEntities } from '../utils/entities';
 
 // === Types ===
 
@@ -162,24 +163,15 @@ function parseAttributes(attrString: string): Record<string, string> {
 
   while ((match = attrRegex.exec(attrString)) !== null) {
     const key = match[1];
-    const value = decodeXMLEntities(match[2]);
+    const value = decodeHtmlEntities(match[2]);
     attrs[key] = value;
   }
 
   return attrs;
 }
 
-/**
- * Decode common XML entities in attribute values.
- */
-function decodeXMLEntities(str: string): string {
-  return str
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'");
-}
+// Entity decoding is shared with the feed parser (`src/utils/entities.ts`).
+// A single pass prevents `&amp;lt;` from being double-unescaped into `<`.
 
 // === Generator ===
 

@@ -8,6 +8,10 @@
  */
 
 import { Subscription } from '../types';
+import { decodeHtmlEntities } from '../utils/entities';
+
+// Keep the historical export surface of this module intact.
+export { decodeHtmlEntities };
 
 // === Types ===
 
@@ -355,15 +359,11 @@ function stripCDATA(content: string): string {
 }
 
 /**
- * Decode common XML entities.
+ * Decode common XML entities. Delegates to the shared single-pass decoder so
+ * `&amp;lt;` stays the literal text `&lt;` instead of being decoded twice.
  */
 function decodeXMLEntities(str: string): string {
-  return str
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'");
+  return decodeHtmlEntities(str);
 }
 
 /**
@@ -396,28 +396,9 @@ export function rfc2822ToISO8601(dateStr: string): string {
   return trimmed;
 }
 
-const NAMED_ENTITIES: Record<string, string> = {
-  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
-  hellip: '…', mdash: '—', ndash: '–', lsquo: '‘', rsquo: '’',
-  ldquo: '“', rdquo: '”', middot: '·', copy: '©', reg: '®', trade: '™',
-};
-
-/**
- * Decode HTML entities (named and numeric) that survive XML text extraction,
- * e.g. `&#43;` → '+' or `&amp;` → '&'.
- */
-export function decodeHtmlEntities(input: string): string {
-  if (!input || !input.includes('&')) return input;
-  return input.replace(/&(#[xX]?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g, (match, code: string) => {
-    if (code.startsWith('#')) {
-      const num = code[1] === 'x' || code[1] === 'X'
-        ? parseInt(code.slice(2), 16)
-        : parseInt(code.slice(1), 10);
-      return Number.isFinite(num) ? String.fromCodePoint(num) : match;
-    }
-    return NAMED_ENTITIES[code.toLowerCase()] ?? match;
-  });
-}
+// Entity decoding now lives in `src/utils/entities.ts` so every parser shares
+// the same single-pass implementation (see that file for the double-unescaping
+// rationale). `decodeHtmlEntities` is imported at the top of this module.
 
 // === Parallel Feed Refresh ===
 

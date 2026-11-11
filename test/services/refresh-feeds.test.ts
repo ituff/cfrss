@@ -35,6 +35,19 @@ function makeRSSXml(title: string, items: Array<{ title: string; link: string; p
 </rss>`;
 }
 
+/**
+ * Route a mocked fetch by the URL's exact host. Parsing the URL first avoids
+ * substring checks such as `url.includes('a.com')`, which would also match
+ * `https://evil-a.com/?x=a.com` (CodeQL: incomplete URL substring sanitization).
+ */
+function isFeedHost(url: string, host: string): boolean {
+  try {
+    return new URL(url).hostname === host;
+  } catch {
+    return false;
+  }
+}
+
 describe('refreshAllFeeds - Parallel feed refresh with fault tolerance', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -91,9 +104,9 @@ describe('refreshAllFeeds - Parallel feed refresh with fault tolerance', () => {
     const xml3 = makeRSSXml('Feed Three', [{ title: 'Article D', link: 'https://c.com/1' }]);
 
     const mockFetch = vi.fn().mockImplementation((url: string) => {
-      if (url.includes('a.com')) return Promise.resolve(new Response(xml1, { status: 200 }));
-      if (url.includes('b.com')) return Promise.resolve(new Response(xml2, { status: 200 }));
-      if (url.includes('c.com')) return Promise.resolve(new Response(xml3, { status: 200 }));
+      if (isFeedHost(url, 'a.com')) return Promise.resolve(new Response(xml1, { status: 200 }));
+      if (isFeedHost(url, 'b.com')) return Promise.resolve(new Response(xml2, { status: 200 }));
+      if (isFeedHost(url, 'c.com')) return Promise.resolve(new Response(xml3, { status: 200 }));
       return Promise.reject(new Error('Unknown URL'));
     });
     vi.stubGlobal('fetch', mockFetch);
@@ -117,8 +130,8 @@ describe('refreshAllFeeds - Parallel feed refresh with fault tolerance', () => {
     const xml1 = makeRSSXml('Working Feed', [{ title: 'Good Article', link: 'https://good.com/1' }]);
 
     const mockFetch = vi.fn().mockImplementation((url: string) => {
-      if (url.includes('good.com')) return Promise.resolve(new Response(xml1, { status: 200 }));
-      if (url.includes('bad.com')) return Promise.reject(new Error('Network error'));
+      if (isFeedHost(url, 'good.com')) return Promise.resolve(new Response(xml1, { status: 200 }));
+      if (isFeedHost(url, 'bad.com')) return Promise.reject(new Error('Network error'));
       return Promise.reject(new Error('Unknown'));
     });
     vi.stubGlobal('fetch', mockFetch);
@@ -183,10 +196,10 @@ describe('refreshAllFeeds - Parallel feed refresh with fault tolerance', () => {
     const xmlGood = makeRSSXml('Working', [{ title: 'A1', link: 'https://a.com/1' }]);
 
     const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
-      if (url.includes('good1.com')) return Promise.resolve(new Response(xmlGood, { status: 200 }));
-      if (url.includes('good2.com')) return Promise.resolve(new Response(xmlGood, { status: 200 }));
-      if (url.includes('error.com')) return Promise.reject(new Error('Connection refused'));
-      if (url.includes('slow.com')) {
+      if (isFeedHost(url, 'good1.com')) return Promise.resolve(new Response(xmlGood, { status: 200 }));
+      if (isFeedHost(url, 'good2.com')) return Promise.resolve(new Response(xmlGood, { status: 200 }));
+      if (isFeedHost(url, 'error.com')) return Promise.reject(new Error('Connection refused'));
+      if (isFeedHost(url, 'slow.com')) {
         return new Promise<Response>((resolve, reject) => {
           const timer = setTimeout(() => resolve(new Response('late', { status: 200 })), 5000);
           if (options?.signal) {

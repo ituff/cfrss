@@ -23,25 +23,27 @@ import { validationError, notFoundError } from '../utils/errors';
 
 import { getConfig } from '../services/config-store';
 import { getArticleContent } from '../services/content-store';
+import { decodeHtmlEntities } from '../utils/entities';
 
 /**
  * Convert stored article HTML to plain text for LLM input:
- * drop tags, decode common entities, collapse whitespace.
+ * drop tags, decode entities, collapse whitespace.
+ *
+ * The script/style end tags accept trailing whitespace and attributes
+ * (`</script >`, `</script foo="bar">`) because browsers do; a bare
+ * `</script>` pattern would leave the script body in the LLM input.
  */
 function htmlToPlainText(html: string): string {
   if (!html) return '';
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+  const text = html
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style[^>]*>/gi, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script[^>]*>/gi, ' ')
     .replace(/<\/(p|div|h[1-6]|li|tr|blockquote|section)>/gi, '\n\n')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#0?39;/g, "'")
+    .replace(/<[^>]+>/g, ' ');
+  // Single-pass decoding: chaining `&amp;` -> `&` first would double-unescape
+  // `&amp;lt;` into a literal `<`.
+  return decodeHtmlEntities(text)
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
